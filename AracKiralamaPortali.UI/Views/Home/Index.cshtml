@@ -1,0 +1,42 @@
+﻿@{
+    ViewData["Title"] = "Ana Sayfa";
+}
+
+<div class="p-5 mb-4 bg-primary text-white rounded">
+    <h1><i class="fas fa-car"></i> Arac Kiralama Portali</h1>
+    <p class="lead">En uygun fiyatlarla arac kiralama hizmeti.</p>
+    <a class="btn btn-light btn-lg" asp-controller="Vehicle" asp-action="Index"><i class="fas fa-search"></i> Araclari Incele</a>
+</div>
+
+<h3>Musait Araclar</h3>
+<div class="row" id="vehicleList"></div>
+
+@section Scripts {
+<script>
+    $(document).ready(function () {
+        $.ajax({
+            url: apiBaseUrl + "/Vehicles/available",
+            type: "GET",
+            success: function (data) {
+                var html = "";
+                $.each(data, function (i, v) {
+                    html += '<div class="col-md-4 mb-4"><div class="card h-100 shadow-sm">';
+                    if (v.imageUrl) {
+                        html += '<img src="' + v.imageUrl + '" class="card-img-top" style="height:200px;object-fit:cover;" />';
+                    } else {
+                        html += '<div class="bg-secondary text-white d-flex align-items-center justify-content-center" style="height:200px;"><i class="fas fa-car fa-3x"></i></div>';
+                    }
+                    html += '<div class="card-body">';
+                    html += '<h5 class="card-title">' + v.brandName + ' ' + v.model + '</h5>';
+                    html += '<p><strong>Plaka:</strong> ' + v.plate + '<br/><strong>Yil:</strong> ' + v.year + '<br/><strong>Renk:</strong> ' + v.color + '<br/><strong>Yakit:</strong> ' + v.fuelType + '<br/><strong>Vites:</strong> ' + v.transmissionType + '</p>';
+                    html += '<h5 class="text-success">' + v.dailyPrice + ' TL / Gun</h5>';
+                    html += '</div><div class="card-footer"><a href="/Vehicle/Detail/' + v.id + '" class="btn btn-primary w-100"><i class="fas fa-info-circle"></i> Detay</a></div>';
+                    html += '</div></div>';
+                });
+                if (data.length === 0) html = '<div class="col-12"><div class="alert alert-info">Su an musait arac bulunmamaktadir.</div></div>';
+                $("#vehicleList").html(html);
+            }
+        });
+    });
+</script>
+}

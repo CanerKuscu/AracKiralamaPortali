@@ -1,0 +1,149 @@
+﻿<!DOCTYPE html>
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Arac Kiralama Portali</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" asp-controller="Home" asp-action="Index">
+                <i class="fas fa-car"></i> Arac Kiralama
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Home" asp-action="Index">Ana Sayfa</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Vehicle" asp-action="Index">Araclar</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav" id="navMenu">
+                    <li class="nav-item" id="navLogin">
+                        <a class="nav-link" asp-controller="Auth" asp-action="Login"><i class="fas fa-sign-in-alt"></i> Giris Yap</a>
+                    </li>
+                    <li class="nav-item" id="navRegister">
+                        <a class="nav-link" asp-controller="Auth" asp-action="Register"><i class="fas fa-user-plus"></i> Kayit Ol</a>
+                    </li>
+                    <li class="nav-item d-none" id="navMyReservations">
+                        <a class="nav-link" asp-controller="Reservation" asp-action="MyReservations"><i class="fas fa-calendar-alt"></i> Rezervasyonlarim</a>
+                    </li>
+                    <li class="nav-item dropdown d-none" id="navAdmin">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"><i class="fas fa-cogs"></i> Yonetim</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" asp-controller="Admin" asp-action="Brands">Markalar</a></li>
+                            <li><a class="dropdown-item" asp-controller="Admin" asp-action="Vehicles">Araclar</a></li>
+                            <li><a class="dropdown-item" asp-controller="Admin" asp-action="AdditionalServices">Ek Hizmetler</a></li>
+                            <li><hr class="dropdown-divider" /></li>
+                            <li><a class="dropdown-item" asp-controller="Admin" asp-action="Reservations">Rezervasyonlar</a></li>
+                            <li><a class="dropdown-item" asp-controller="Admin" asp-action="Payments">Odemeler</a></li>
+                            <li><hr class="dropdown-divider" /></li>
+                            <li><a class="dropdown-item" asp-controller="Admin" asp-action="Fleet">Filo Takibi</a></li>
+                            <li><a class="dropdown-item" asp-controller="Admin" asp-action="Maintenances">Bakim Takibi</a></li>
+                            <li><a class="dropdown-item" asp-controller="Admin" asp-action="Reports">Raporlar</a></li>
+                            <li><hr class="dropdown-divider" /></li>
+                            <li><a class="dropdown-item" asp-controller="Admin" asp-action="Users">Kullanicilar</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown d-none" id="navProfile">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user"></i> <span id="navUserName"></span>
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" asp-controller="Auth" asp-action="Profile">Profilim</a></li>
+                            <li><hr class="dropdown-divider" /></li>
+                            <li><a class="dropdown-item" href="#" onclick="logout()">Cikis Yap</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div id="alertContainer"></div>
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted mt-5">
+        <div class="container text-center py-3">
+            &copy; 2026 - Arac Kiralama Portali
+        </div>
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        var apiBaseUrl = "https://localhost:7194/api";
+
+        function getToken() { return localStorage.getItem("token"); }
+        function setToken(t) { localStorage.setItem("token", t); }
+        function removeToken() { localStorage.removeItem("token"); }
+
+        function parseJwt(token) {
+            var b = token.split('.')[1];
+            var s = atob(b.replace(/-/g, '+').replace(/_/g, '/'));
+            return JSON.parse(decodeURIComponent(s.split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join('')));
+        }
+
+        function getUserInfo() {
+            var t = getToken();
+            if (!t) return null;
+            try {
+                var d = parseJwt(t);
+                return {
+                    id: d["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"],
+                    userName: d["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"],
+                    fullName: d["FullName"],
+                    role: d["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"]
+                };
+            } catch (e) { return null; }
+        }
+
+        function isAdmin() { var u = getUserInfo(); return u && u.role === "Admin"; }
+        function isLoggedIn() { return getToken() !== null; }
+        function logout() { removeToken(); window.location.href = "/"; }
+
+        function showAlert(msg, type) {
+            $("#alertContainer").html('<div class="alert alert-' + type + ' alert-dismissible fade show">' + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+        }
+
+        function updateNavbar() {
+            if (isLoggedIn()) {
+                var u = getUserInfo();
+                $("#navLogin, #navRegister").addClass("d-none");
+                $("#navProfile, #navMyReservations").removeClass("d-none");
+                $("#navUserName").text(u.fullName);
+                if (isAdmin()) $("#navAdmin").removeClass("d-none");
+            } else {
+                $("#navLogin, #navRegister").removeClass("d-none");
+                $("#navProfile, #navMyReservations, #navAdmin").addClass("d-none");
+            }
+        }
+
+        $(document).ready(function () {
+            $.ajaxSetup({
+                beforeSend: function (xhr) {
+                    var t = getToken();
+                    if (t) xhr.setRequestHeader("Authorization", "Bearer " + t);
+                }
+            });
+            updateNavbar();
+        });
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

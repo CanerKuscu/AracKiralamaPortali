@@ -1,0 +1,89 @@
+@{
+    ViewData["Title"] = "Profilim";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h4 class="mb-0"><i class="fas fa-user"></i> Profilim</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table">
+                            <tr><th>Ad Soyad</th><td id="pFullName"></td></tr>
+                            <tr><th>E-posta</th><td id="pEmail"></td></tr>
+                            <tr><th>Kullanici Adi</th><td id="pUserName"></td></tr>
+                            <tr><th>Telefon</th><td id="pPhone"></td></tr>
+                            <tr><th>Roller</th><td id="pRoles"></td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table">
+                            <tr><th>T.C. Kimlik No</th><td id="pTCKimlik"></td></tr>
+                            <tr><th>Adres</th><td id="pAddress"></td></tr>
+                            <tr><th>Ehliyet Sinifi</th><td id="pLicenseClass"></td></tr>
+                            <tr><th>Ehliyet Verilis</th><td id="pLicenseIssue"></td></tr>
+                        </table>
+                    </div>
+                </div>
+                <hr />
+                <h5>Sifre Degistir</h5>
+                <form id="changePasswordForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Mevcut Sifre</label>
+                            <input type="password" class="form-control" id="currentPassword" required />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Yeni Sifre</label>
+                            <input type="password" class="form-control" id="newPassword" required minlength="6" />
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-warning">Sifre Degistir</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    $(document).ready(function () {
+        if (!isLoggedIn()) { window.location.href = "/Auth/Login"; return; }
+        $.ajax({
+            url: apiBaseUrl + "/Auth/profile",
+            type: "GET",
+            success: function (d) {
+                $("#pFullName").text(d.fullName);
+                $("#pEmail").text(d.email);
+                $("#pUserName").text(d.userName);
+                $("#pPhone").text(d.phoneNumber || "-");
+                $("#pRoles").text(d.roles.join(", "));
+                $("#pTCKimlik").text(d.tcKimlik || "-");
+                $("#pAddress").text(d.address || "-");
+                $("#pLicenseClass").text(d.licenseClass || "-");
+                $("#pLicenseIssue").text(d.licenseIssueDate ? new Date(d.licenseIssueDate).toLocaleDateString("tr-TR") : "-");
+            }
+        });
+    });
+
+    $("#changePasswordForm").submit(function (e) {
+        e.preventDefault();
+        $.ajax({
+            url: apiBaseUrl + "/Auth/change-password",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ currentPassword: $("#currentPassword").val(), newPassword: $("#newPassword").val() }),
+            success: function () { showAlert("Sifre degistirildi.", "success"); $("#changePasswordForm")[0].reset(); },
+            error: function (xhr) {
+                var msg = "Sifre degistirilemedi.";
+                if (xhr.responseJSON && Array.isArray(xhr.responseJSON))
+                    msg = xhr.responseJSON.map(function (e) { return e.description; }).join("<br/>");
+                showAlert(msg, "danger");
+            }
+        });
+    });
+</script>
+}

@@ -1,0 +1,52 @@
+@{
+    ViewData["Title"] = "Giris Yap";
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="fas fa-sign-in-alt"></i> Giris Yap</h4>
+            </div>
+            <div class="card-body">
+                <form id="loginForm">
+                    <div class="mb-3">
+                        <label class="form-label">Kullanici Adi</label>
+                        <input type="text" class="form-control" id="userName" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Sifre</label>
+                        <input type="password" class="form-control" id="password" required />
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Giris Yap</button>
+                </form>
+                <div class="mt-3 text-center">
+                    Hesabiniz yok mu? <a asp-controller="Auth" asp-action="Register">Kayit Ol</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    $("#loginForm").submit(function (e) {
+        e.preventDefault();
+        $.ajax({
+            url: apiBaseUrl + "/Auth/login",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ userName: $("#userName").val(), password: $("#password").val() }),
+            success: function (res) {
+                setToken(res.token);
+                window.location.href = "/";
+            },
+            error: function (xhr) {
+                var msg = "Giris basarisiz.";
+                if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
+                showAlert(msg, "danger");
+            }
+        });
+    });
+</script>
+}

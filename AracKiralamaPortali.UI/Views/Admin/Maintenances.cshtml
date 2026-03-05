@@ -1,0 +1,213 @@
+@{
+    ViewData["Title"] = "Bakim Takibi";
+}
+
+<h2><i class="fas fa-wrench"></i> Bakim Takibi</h2>
+
+<button class="btn btn-primary mb-3" onclick="openAddModal()"><i class="fas fa-plus"></i> Yeni Bakim Kaydi</button>
+
+<div class="alert alert-warning" id="upcomingAlert" style="display:none;">
+    <strong><i class="fas fa-exclamation-triangle"></i> Yaklasan Bakimlar:</strong>
+    <div id="upcomingList"></div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead class="table-dark">
+            <tr><th>ID</th><th>Arac</th><th>Tip</th><th>Tarih</th><th>Sonraki Tarih</th><th>Maliyet</th><th>KM</th><th>Durum</th><th>Islem</th></tr>
+        </thead>
+        <tbody id="maintenanceList"></tbody>
+    </table>
+</div>
+
+<div class="modal fade" id="maintenanceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="maintenanceModalTitle"></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="maintenanceForm">
+                    <input type="hidden" id="maintenanceId" />
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Arac</label>
+                            <select class="form-select" id="mVehicleId" required></select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Bakim Tipi</label>
+                            <select class="form-select" id="mType" required>
+                                <option value="Periyodik Bakim">Periyodik Bakim</option>
+                                <option value="Muayene">Muayene</option>
+                                <option value="Sigorta">Sigorta</option>
+                                <option value="Lastik Degisimi">Lastik Degisimi</option>
+                                <option value="Yag Degisimi">Yag Degisimi</option>
+                                <option value="Fren Bakimi">Fren Bakimi</option>
+                                <option value="Diger">Diger</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Tarih</label>
+                            <input type="date" class="form-control" id="mDate" required />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Sonraki Bakim Tarihi</label>
+                            <input type="date" class="form-control" id="mNextDate" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Maliyet (TL)</label>
+                            <input type="number" step="0.01" class="form-control" id="mCost" required />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Bakim Anindaki KM</label>
+                            <input type="number" class="form-control" id="mMileage" required />
+                        </div>
+                        <div class="col-md-6 mb-3 d-none" id="mStatusDiv">
+                            <label class="form-label">Durum</label>
+                            <select class="form-select" id="mStatus">
+                                <option value="Planned">Planlanmis</option>
+                                <option value="InProgress">Devam Ediyor</option>
+                                <option value="Completed">Tamamlandi</option>
+                            </select>
+                        </div>
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">Aciklama</label>
+                            <textarea class="form-control" id="mDescription" rows="2"></textarea>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Kaydet</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    $(document).ready(function () {
+        if (!isAdmin()) { window.location.href = "/"; return; }
+        loadVehicleOptions();
+        loadMaintenances();
+        loadUpcoming();
+    });
+
+    function loadVehicleOptions() {
+        $.ajax({
+            url: apiBaseUrl + "/Vehicles", type: "GET",
+            success: function (data) {
+                var html = "";
+                $.each(data, function (i, v) { html += '<option value="' + v.id + '">' + v.plate + ' - ' + v.brandName + ' ' + v.model + '</option>'; });
+                $("#mVehicleId").html(html);
+            }
+        });
+    }
+
+    function loadUpcoming() {
+        $.ajax({
+            url: apiBaseUrl + "/Maintenances/upcoming", type: "GET",
+            success: function (data) {
+                if (data.length > 0) {
+                    var html = "<ul class='mb-0'>";
+                    $.each(data, function (i, m) {
+                        html += "<li><strong>" + m.vehiclePlate + "</strong> - " + m.type + " (Son Tarih: " + new Date(m.nextDate).toLocaleDateString("tr-TR") + ")</li>";
+                    });
+                    html += "</ul>";
+                    $("#upcomingList").html(html);
+                    $("#upcomingAlert").show();
+                }
+            }
+        });
+    }
+
+    var statusMap = {"Planned":"Planlanmis","InProgress":"Devam Ediyor","Completed":"Tamamlandi"};
+    var statusColor = {"Planned":"warning","InProgress":"info","Completed":"success"};
+
+    function loadMaintenances() {
+        $.ajax({
+            url: apiBaseUrl + "/Maintenances", type: "GET",
+            success: function (data) {
+                var html = "";
+                $.each(data, function (i, m) {
+                    html += "<tr><td>" + m.id + "</td><td>" + m.vehiclePlate + " (" + m.brandName + ")</td><td>" + m.type + "</td>";
+                    html += "<td>" + new Date(m.date).toLocaleDateString("tr-TR") + "</td>";
+                    html += "<td>" + (m.nextDate ? new Date(m.nextDate).toLocaleDateString("tr-TR") : "-") + "</td>";
+                    html += "<td>" + m.cost + " TL</td><td>" + m.mileageAtService + "</td>";
+                    html += '<td><span class="badge bg-' + (statusColor[m.status]||"secondary") + '">' + (statusMap[m.status]||m.status) + '</span></td>';
+                    html += '<td><button class="btn btn-sm btn-warning me-1" onclick="editMaintenance(' + m.id + ')"><i class="fas fa-edit"></i></button>';
+                    html += '<button class="btn btn-sm btn-danger" onclick="deleteMaintenance(' + m.id + ')"><i class="fas fa-trash"></i></button></td></tr>';
+                });
+                if (!data.length) html = '<tr><td colspan="9" class="text-center">Kayit bulunamadi.</td></tr>';
+                $("#maintenanceList").html(html);
+            }
+        });
+    }
+
+    function openAddModal() {
+        $("#maintenanceModalTitle").text("Yeni Bakim Kaydi");
+        $("#maintenanceId").val("");
+        $("#maintenanceForm")[0].reset();
+        $("#mStatusDiv").addClass("d-none");
+        new bootstrap.Modal(document.getElementById("maintenanceModal")).show();
+    }
+
+    function editMaintenance(id) {
+        $.ajax({
+            url: apiBaseUrl + "/Maintenances/" + id, type: "GET",
+            success: function (m) {
+                $("#maintenanceModalTitle").text("Bakim Kaydi Duzenle");
+                $("#maintenanceId").val(m.id);
+                $("#mVehicleId").val(m.vehicleId);
+                $("#mType").val(m.type);
+                $("#mDate").val(m.date.split("T")[0]);
+                $("#mNextDate").val(m.nextDate ? m.nextDate.split("T")[0] : "");
+                $("#mCost").val(m.cost);
+                $("#mMileage").val(m.mileageAtService);
+                $("#mDescription").val(m.description);
+                $("#mStatus").val(m.status);
+                $("#mStatusDiv").removeClass("d-none");
+                new bootstrap.Modal(document.getElementById("maintenanceModal")).show();
+            }
+        });
+    }
+
+    $("#maintenanceForm").submit(function (e) {
+        e.preventDefault();
+        var id = $("#maintenanceId").val();
+        if (id) {
+            $.ajax({
+                url: apiBaseUrl + "/Maintenances/" + id, type: "PUT", contentType: "application/json",
+                data: JSON.stringify({
+                    type: $("#mType").val(), description: $("#mDescription").val(),
+                    date: $("#mDate").val(), nextDate: $("#mNextDate").val() || null,
+                    cost: parseFloat($("#mCost").val()), mileageAtService: parseInt($("#mMileage").val()),
+                    status: $("#mStatus").val()
+                }),
+                success: function () { bootstrap.Modal.getInstance(document.getElementById("maintenanceModal")).hide(); showAlert("Guncellendi.", "success"); loadMaintenances(); loadUpcoming(); },
+                error: function () { showAlert("Hata.", "danger"); }
+            });
+        } else {
+            $.ajax({
+                url: apiBaseUrl + "/Maintenances", type: "POST", contentType: "application/json",
+                data: JSON.stringify({
+                    type: $("#mType").val(), description: $("#mDescription").val(),
+                    date: $("#mDate").val(), nextDate: $("#mNextDate").val() || null,
+                    cost: parseFloat($("#mCost").val()), mileageAtService: parseInt($("#mMileage").val()),
+                    vehicleId: parseInt($("#mVehicleId").val())
+                }),
+                success: function () { bootstrap.Modal.getInstance(document.getElementById("maintenanceModal")).hide(); showAlert("Eklendi.", "success"); loadMaintenances(); loadUpcoming(); },
+                error: function () { showAlert("Hata.", "danger"); }
+            });
+        }
+    });
+
+    function deleteMaintenance(id) {
+        if (!confirm("Silmek istiyor musunuz?")) return;
+        $.ajax({
+            url: apiBaseUrl + "/Maintenances/" + id, type: "DELETE",
+            success: function () { showAlert("Silindi.", "success"); loadMaintenances(); },
+            error: function () { showAlert("Hata.", "danger"); }
+        });
+    }
+</script>
+}

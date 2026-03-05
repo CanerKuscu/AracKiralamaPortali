@@ -1,0 +1,136 @@
+@{
+    ViewData["Title"] = "Rezervasyonlarim";
+}
+
+<h2><i class="fas fa-calendar-alt"></i> Rezervasyonlarim</h2>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th>ID</th>
+                <th>Arac</th>
+                <th>Marka</th>
+                <th>Baslangic</th>
+                <th>Bitis</th>
+                <th>Toplam</th>
+                <th>Depozito</th>
+                <th>Ek Hizmetler</th>
+                <th>Durum</th>
+                <th>Islem</th>
+            </tr>
+        </thead>
+        <tbody id="reservationList"></tbody>
+    </table>
+</div>
+
+<div class="modal fade" id="paymentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-credit-card"></i> Odeme Yap</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="paymentForm">
+                    <input type="hidden" id="payReservationId" />
+                    <div class="mb-3">
+                        <label class="form-label">Tutar</label>
+                        <input type="number" class="form-control" id="payAmount" readonly />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Odeme Yontemi</label>
+                        <select class="form-select" id="payMethod" required>
+                            <option value="Kredi Karti">Kredi Karti</option>
+                            <option value="Nakit">Nakit</option>
+                            <option value="Havale">Havale</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">Odeme Yap</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    $(document).ready(function () {
+        if (!isLoggedIn()) { window.location.href = "/Auth/Login"; return; }
+        loadReservations();
+    });
+
+    function loadReservations() {
+        $.ajax({
+            url: apiBaseUrl + "/Reservations/my",
+            type: "GET",
+            success: function (data) {
+                var html = "";
+                $.each(data, function (i, r) {
+                    html += "<tr>";
+                    html += "<td>" + r.id + "</td>";
+                    html += "<td>" + r.vehiclePlate + "</td>";
+                    html += "<td>" + r.brandName + "</td>";
+                    html += "<td>" + new Date(r.startDate).toLocaleDateString("tr-TR") + "</td>";
+                    html += "<td>" + new Date(r.endDate).toLocaleDateString("tr-TR") + "</td>";
+                    html += "<td>" + r.totalPrice + " TL</td>";
+                    html += "<td>" + r.depositAmount + " TL</td>";
+                    html += "<td>" + (r.additionalServices && r.additionalServices.length > 0 ? r.additionalServices.join(", ") : "-") + "</td>";
+                    html += "<td>" + getStatusBadge(r.status) + "</td>";
+                    html += "<td>";
+                    if (r.status === "Pending") {
+                        html += '<button class="btn btn-sm btn-success me-1" onclick="openPayment(' + r.id + ',' + r.totalPrice + ')"><i class="fas fa-credit-card"></i></button>';
+                        html += '<button class="btn btn-sm btn-danger" onclick="cancelReservation(' + r.id + ')"><i class="fas fa-times"></i></button>';
+                    }
+                    html += "</td></tr>";
+                });
+                if (data.length === 0) html = '<tr><td colspan="10" class="text-center">Rezervasyon bulunamadi.</td></tr>';
+                $("#reservationList").html(html);
+            }
+        });
+    }
+
+    function getStatusBadge(s) {
+        if (s === "Pending") return '<span class="badge bg-warning text-dark">Beklemede</span>';
+        if (s === "Confirmed") return '<span class="badge bg-success">Onaylandi</span>';
+        if (s === "Cancelled") return '<span class="badge bg-danger">Iptal</span>';
+        return '<span class="badge bg-secondary">' + s + '</span>';
+    }
+
+    function cancelReservation(id) {
+        if (!confirm("Rezervasyonu iptal etmek istiyor musunuz?")) return;
+        $.ajax({
+            url: apiBaseUrl + "/Reservations/" + id + "/cancel",
+            type: "PUT",
+            success: function () { showAlert("Rezervasyon iptal edildi.", "success"); loadReservations(); },
+            error: function () { showAlert("Iptal basarisiz.", "danger"); }
+        });
+    }
+
+    function openPayment(resId, amount) {
+        $("#payReservationId").val(resId);
+        $("#payAmount").val(amount);
+        new bootstrap.Modal(document.getElementById("paymentModal")).show();
+    }
+
+    $("#paymentForm").submit(function (e) {
+        e.preventDefault();
+        $.ajax({
+            url: apiBaseUrl + "/Payments",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ amount: parseFloat($("#payAmount").val()), paymentMethod: $("#payMethod").val(), reservationId: parseInt($("#payReservationId").val()) }),
+            success: function () {
+                bootstrap.Modal.getInstance(document.getElementById("paymentModal")).hide();
+                showAlert("Odeme basarili.", "success");
+                loadReservations();
+            },
+            error: function (xhr) {
+                var msg = "Odeme basarisiz.";
+                if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
+                showAlert(msg, "danger");
+            }
+        });
+    });
+</script>
+}

@@ -1,0 +1,83 @@
+@{
+    ViewData["Title"] = "Filo Takibi";
+}
+
+<h2><i class="fas fa-truck"></i> Filo Takibi</h2>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-success shadow">
+            <div class="card-body text-center">
+                <h5>Musait</h5>
+                <h2 id="countAvailable">0</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning shadow">
+            <div class="card-body text-center">
+                <h5>Kirada</h5>
+                <h2 id="countRented">0</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info shadow">
+            <div class="card-body text-center">
+                <h5>Bakimda</h5>
+                <h2 id="countMaintenance">0</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-danger shadow">
+            <div class="card-body text-center">
+                <h5>Hasarli</h5>
+                <h2 id="countDamaged">0</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead class="table-dark">
+            <tr><th>Plaka</th><th>Marka</th><th>Model</th><th>Durum</th><th>Suanki Kullanan</th><th>Teslim Tarihi</th></tr>
+        </thead>
+        <tbody id="fleetList"></tbody>
+    </table>
+</div>
+
+@section Scripts {
+<script>
+    $(document).ready(function () {
+        if (!isAdmin()) { window.location.href = "/"; return; }
+        loadFleet();
+    });
+
+    var statusMap = {"Available":"Musait","Rented":"Kirada","Maintenance":"Bakimda","Damaged":"Hasarli"};
+    var statusColor = {"Available":"success","Rented":"warning","Maintenance":"info","Damaged":"danger"};
+
+    function loadFleet() {
+        $.ajax({
+            url: apiBaseUrl + "/Vehicles/fleet", type: "GET",
+            success: function (data) {
+                var counts = {Available:0, Rented:0, Maintenance:0, Damaged:0};
+                var html = "";
+                $.each(data, function (i, v) {
+                    counts[v.vehicleStatus] = (counts[v.vehicleStatus] || 0) + 1;
+                    html += "<tr><td>" + v.plate + "</td><td>" + v.brandName + "</td><td>" + v.model + "</td>";
+                    html += '<td><span class="badge bg-' + (statusColor[v.vehicleStatus]||"secondary") + '">' + (statusMap[v.vehicleStatus]||v.vehicleStatus) + '</span></td>';
+                    html += "<td>" + (v.currentUser || "-") + "</td>";
+                    html += "<td>" + (v.returnDate ? new Date(v.returnDate).toLocaleDateString("tr-TR") : "-") + "</td></tr>";
+                });
+                $("#fleetList").html(html);
+                $("#countAvailable").text(counts.Available || 0);
+                $("#countRented").text(counts.Rented || 0);
+                $("#countMaintenance").text(counts.Maintenance || 0);
+                $("#countDamaged").text(counts.Damaged || 0);
+            }
+        });
+    }
+</script>
+}

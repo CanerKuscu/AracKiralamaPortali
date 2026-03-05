@@ -1,0 +1,97 @@
+@{
+    ViewData["Title"] = "Araclar";
+}
+
+<h2><i class="fas fa-car"></i> Araclar</h2>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3 mb-2">
+                <label class="form-label">Marka</label>
+                <select class="form-select" id="brandFilter"><option value="">Tum Markalar</option></select>
+            </div>
+            <div class="col-md-2 mb-2">
+                <label class="form-label">Yakit Tipi</label>
+                <select class="form-select" id="fuelFilter">
+                    <option value="">Tumu</option>
+                    <option value="Benzin">Benzin</option><option value="Dizel">Dizel</option>
+                    <option value="LPG">LPG</option><option value="Elektrik">Elektrik</option><option value="Hibrit">Hibrit</option>
+                </select>
+            </div>
+            <div class="col-md-2 mb-2">
+                <label class="form-label">Vites</label>
+                <select class="form-select" id="transmissionFilter">
+                    <option value="">Tumu</option><option value="Manuel">Manuel</option><option value="Otomatik">Otomatik</option>
+                </select>
+            </div>
+            <div class="col-md-2 mb-2">
+                <label class="form-label">Min Fiyat</label>
+                <input type="number" class="form-control" id="minPrice" placeholder="0" />
+            </div>
+            <div class="col-md-2 mb-2">
+                <label class="form-label">Max Fiyat</label>
+                <input type="number" class="form-control" id="maxPrice" placeholder="9999" />
+            </div>
+            <div class="col-md-1 mb-2 d-flex align-items-end">
+                <button class="btn btn-primary w-100" onclick="loadVehicles()"><i class="fas fa-search"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row" id="vehicleList"></div>
+
+@section Scripts {
+<script>
+    $(document).ready(function () {
+        $.ajax({
+            url: apiBaseUrl + "/Brands", type: "GET",
+            success: function (data) {
+                $.each(data, function (i, b) {
+                    if (b.isActive) $("#brandFilter").append('<option value="' + b.id + '">' + b.name + '</option>');
+                });
+            }
+        });
+        loadVehicles();
+    });
+
+    function loadVehicles() {
+        var params = {};
+        var brand = $("#brandFilter").val();
+        var fuel = $("#fuelFilter").val();
+        var trans = $("#transmissionFilter").val();
+        var minP = $("#minPrice").val();
+        var maxP = $("#maxPrice").val();
+
+        if (brand) params.brandId = brand;
+        if (fuel) params.fuelType = fuel;
+        if (trans) params.transmissionType = trans;
+        if (minP) params.minPrice = minP;
+        if (maxP) params.maxPrice = maxP;
+
+        $.ajax({
+            url: apiBaseUrl + "/Vehicles/filter",
+            type: "GET",
+            data: params,
+            success: function (data) {
+                var html = "";
+                $.each(data, function (i, v) {
+                    html += '<div class="col-md-4 mb-4"><div class="card h-100 shadow-sm">';
+                    if (v.imageUrl) html += '<img src="' + v.imageUrl + '" class="card-img-top" style="height:200px;object-fit:cover;" />';
+                    else html += '<div class="bg-secondary text-white d-flex align-items-center justify-content-center" style="height:200px;"><i class="fas fa-car fa-3x"></i></div>';
+                    html += '<div class="card-body"><h5 class="card-title">' + v.brandName + ' ' + v.model + '</h5>';
+                    html += '<p><strong>Plaka:</strong> ' + v.plate + '<br/><strong>Yil:</strong> ' + v.year + '<br/><strong>Renk:</strong> ' + v.color;
+                    html += '<br/><strong>Yakit:</strong> ' + v.fuelType + '<br/><strong>Vites:</strong> ' + v.transmissionType;
+                    html += '<br/><strong>KM:</strong> ' + v.mileage + '<br/><strong>Yolcu:</strong> ' + v.passengerCapacity + ' <strong>Bagaj:</strong> ' + v.luggageCapacity + '</p>';
+                    html += '<h5 class="text-success">' + v.dailyPrice + ' TL / Gun</h5>';
+                    html += '</div><div class="card-footer"><a href="/Vehicle/Detail/' + v.id + '" class="btn btn-primary w-100"><i class="fas fa-info-circle"></i> Detay</a></div>';
+                    html += '</div></div>';
+                });
+                if (data.length === 0) html = '<div class="col-12"><div class="alert alert-info">Arac bulunamadi.</div></div>';
+                $("#vehicleList").html(html);
+            }
+        });
+    }
+</script>
+}

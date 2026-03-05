@@ -1,0 +1,122 @@
+@{
+    ViewData["Title"] = "Marka Yonetimi";
+}
+
+<h2><i class="fas fa-tags"></i> Marka Yonetimi</h2>
+
+<button class="btn btn-primary mb-3" onclick="openAddModal()"><i class="fas fa-plus"></i> Yeni Marka</button>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead class="table-dark">
+            <tr><th>ID</th><th>Ad</th><th>Durum</th><th>Tarih</th><th>Islem</th></tr>
+        </thead>
+        <tbody id="brandList"></tbody>
+    </table>
+</div>
+
+<div class="modal fade" id="brandModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="brandModalTitle"></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="brandForm">
+                    <input type="hidden" id="brandId" />
+                    <div class="mb-3">
+                        <label class="form-label">Marka Adi</label>
+                        <input type="text" class="form-control" id="brandName" required />
+                    </div>
+                    <div class="mb-3 d-none" id="brandActiveDiv">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="brandIsActive" checked />
+                            <label class="form-check-label">Aktif</label>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Kaydet</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    $(document).ready(function () {
+        if (!isAdmin()) { window.location.href = "/"; return; }
+        loadBrands();
+    });
+
+    function loadBrands() {
+        $.ajax({
+            url: apiBaseUrl + "/Brands",
+            type: "GET",
+            success: function (data) {
+                var html = "";
+                $.each(data, function (i, b) {
+                    html += "<tr><td>" + b.id + "</td><td>" + b.name + "</td>";
+                    html += "<td>" + (b.isActive ? '<span class="badge bg-success">Aktif</span>' : '<span class="badge bg-danger">Pasif</span>') + "</td>";
+                    html += "<td>" + new Date(b.createdAt).toLocaleDateString("tr-TR") + "</td>";
+                    html += '<td><button class="btn btn-sm btn-warning me-1" onclick="editBrand(' + b.id + ')"><i class="fas fa-edit"></i></button>';
+                    html += '<button class="btn btn-sm btn-danger" onclick="deleteBrand(' + b.id + ')"><i class="fas fa-trash"></i></button></td></tr>';
+                });
+                $("#brandList").html(html);
+            }
+        });
+    }
+
+    function openAddModal() {
+        $("#brandModalTitle").text("Marka Ekle");
+        $("#brandId").val("");
+        $("#brandName").val("");
+        $("#brandActiveDiv").addClass("d-none");
+        new bootstrap.Modal(document.getElementById("brandModal")).show();
+    }
+
+    function editBrand(id) {
+        $.ajax({
+            url: apiBaseUrl + "/Brands/" + id,
+            type: "GET",
+            success: function (b) {
+                $("#brandModalTitle").text("Marka Duzenle");
+                $("#brandId").val(b.id);
+                $("#brandName").val(b.name);
+                $("#brandIsActive").prop("checked", b.isActive);
+                $("#brandActiveDiv").removeClass("d-none");
+                new bootstrap.Modal(document.getElementById("brandModal")).show();
+            }
+        });
+    }
+
+    $("#brandForm").submit(function (e) {
+        e.preventDefault();
+        var id = $("#brandId").val();
+        if (id) {
+            $.ajax({
+                url: apiBaseUrl + "/Brands/" + id, type: "PUT", contentType: "application/json",
+                data: JSON.stringify({ name: $("#brandName").val(), isActive: $("#brandIsActive").is(":checked") }),
+                success: function () { bootstrap.Modal.getInstance(document.getElementById("brandModal")).hide(); showAlert("Guncellendi.", "success"); loadBrands(); },
+                error: function () { showAlert("Hata.", "danger"); }
+            });
+        } else {
+            $.ajax({
+                url: apiBaseUrl + "/Brands", type: "POST", contentType: "application/json",
+                data: JSON.stringify({ name: $("#brandName").val() }),
+                success: function () { bootstrap.Modal.getInstance(document.getElementById("brandModal")).hide(); showAlert("Eklendi.", "success"); loadBrands(); },
+                error: function () { showAlert("Hata.", "danger"); }
+            });
+        }
+    });
+
+    function deleteBrand(id) {
+        if (!confirm("Silmek istiyor musunuz?")) return;
+        $.ajax({
+            url: apiBaseUrl + "/Brands/" + id, type: "DELETE",
+            success: function () { showAlert("Silindi.", "success"); loadBrands(); },
+            error: function () { showAlert("Hata.", "danger"); }
+        });
+    }
+</script>
+}

@@ -1,0 +1,121 @@
+@{
+    ViewData["Title"] = "Rezervasyon Yonetimi";
+}
+
+<h2><i class="fas fa-calendar-alt"></i> Rezervasyon Yonetimi</h2>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead class="table-dark">
+            <tr><th>ID</th><th>Kullanici</th><th>Arac</th><th>Marka</th><th>Baslangic</th><th>Bitis</th><th>Toplam</th><th>Depozito</th><th>Ek Hizmetler</th><th>Durum</th><th>Islem</th></tr>
+        </thead>
+        <tbody id="reservationList"></tbody>
+    </table>
+</div>
+
+<div class="modal fade" id="editReservationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">Rezervasyon Duzenle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editReservationForm">
+                    <input type="hidden" id="erId" />
+                    <div class="mb-3">
+                        <label class="form-label">Baslangic Tarihi</label>
+                        <input type="date" class="form-control" id="erStartDate" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Bitis Tarihi</label>
+                        <input type="date" class="form-control" id="erEndDate" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Durum</label>
+                        <select class="form-select" id="erStatus" required>
+                            <option value="Pending">Beklemede</option>
+                            <option value="Confirmed">Onaylandi</option>
+                            <option value="Cancelled">Iptal</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Not</label>
+                        <textarea class="form-control" id="erNotes" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-warning w-100">Guncelle</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    $(document).ready(function () {
+        if (!isAdmin()) { window.location.href = "/"; return; }
+        loadReservations();
+    });
+
+    function loadReservations() {
+        $.ajax({
+            url: apiBaseUrl + "/Reservations", type: "GET",
+            success: function (data) {
+                var html = "";
+                $.each(data, function (i, r) {
+                    html += "<tr><td>" + r.id + "</td><td>" + r.userFullName + "</td><td>" + r.vehiclePlate + "</td><td>" + r.brandName + "</td>";
+                    html += "<td>" + new Date(r.startDate).toLocaleDateString("tr-TR") + "</td>";
+                    html += "<td>" + new Date(r.endDate).toLocaleDateString("tr-TR") + "</td>";
+                    html += "<td>" + r.totalPrice + " TL</td>";
+                    html += "<td>" + r.depositAmount + " TL</td>";
+                    html += "<td>" + (r.additionalServices && r.additionalServices.length > 0 ? r.additionalServices.join(", ") : "-") + "</td>";
+                    html += "<td>" + getStatusBadge(r.status) + "</td>";
+                    html += '<td><button class="btn btn-sm btn-warning me-1" onclick="editRes(' + r.id + ')"><i class="fas fa-edit"></i></button>';
+                    html += '<button class="btn btn-sm btn-danger" onclick="deleteRes(' + r.id + ')"><i class="fas fa-trash"></i></button></td></tr>';
+                });
+                $("#reservationList").html(html);
+            }
+        });
+    }
+
+    function getStatusBadge(s) {
+        if (s === "Pending") return '<span class="badge bg-warning text-dark">Beklemede</span>';
+        if (s === "Confirmed") return '<span class="badge bg-success">Onaylandi</span>';
+        if (s === "Cancelled") return '<span class="badge bg-danger">Iptal</span>';
+        return '<span class="badge bg-secondary">' + s + '</span>';
+    }
+
+    function editRes(id) {
+        $.ajax({
+            url: apiBaseUrl + "/Reservations/" + id, type: "GET",
+            success: function (r) {
+                $("#erId").val(r.id);
+                $("#erStartDate").val(r.startDate.split("T")[0]);
+                $("#erEndDate").val(r.endDate.split("T")[0]);
+                $("#erStatus").val(r.status);
+                $("#erNotes").val(r.notes);
+                new bootstrap.Modal(document.getElementById("editReservationModal")).show();
+            }
+        });
+    }
+
+    $("#editReservationForm").submit(function (e) {
+        e.preventDefault();
+        $.ajax({
+            url: apiBaseUrl + "/Reservations/" + $("#erId").val(), type: "PUT", contentType: "application/json",
+            data: JSON.stringify({ startDate: $("#erStartDate").val(), endDate: $("#erEndDate").val(), status: $("#erStatus").val(), notes: $("#erNotes").val() }),
+            success: function () { bootstrap.Modal.getInstance(document.getElementById("editReservationModal")).hide(); showAlert("Guncellendi.", "success"); loadReservations(); },
+            error: function () { showAlert("Hata.", "danger"); }
+        });
+    });
+
+    function deleteRes(id) {
+        if (!confirm("Silmek istiyor musunuz?")) return;
+        $.ajax({
+            url: apiBaseUrl + "/Reservations/" + id, type: "DELETE",
+            success: function () { showAlert("Silindi.", "success"); loadReservations(); },
+            error: function () { showAlert("Hata.", "danger"); }
+        });
+    }
+</script>
+}
