@@ -13,5 +13,6 @@ namespace AracKiralamaPortali.UI.Controllers
         public IActionResult Maintenances() => View();
         public IActionResult Fleet() => View();
         public IActionResult Reports() => View();
+        public IActionResult Reviews() => View();
     }
 }

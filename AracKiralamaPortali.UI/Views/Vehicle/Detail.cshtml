@@ -3,15 +3,95 @@
     var vehicleId = ViewData["VehicleId"];
 }
 
-<div class="row" id="vehicleDetail">
-    <div class="col-md-6" id="vehicleImage"></div>
-    <div class="col-md-6">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                <h4 class="mb-0" id="vehicleTitle"></h4>
+<style>
+    .vehicle-detail-page .vehicle-top-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #303030;
+    }
+
+    .vehicle-detail-page .vehicle-gallery-card,
+    .vehicle-detail-page .vehicle-price-card,
+    .vehicle-detail-page .vehicle-spec-card {
+        border: 1px solid #e5e5e5;
+        background: #fff;
+        border-radius: 8px;
+        padding: 16px;
+    }
+
+    .vehicle-main-image {
+        width: 100%;
+        height: 420px;
+        object-fit: cover;
+        border-radius: 6px;
+        border: 1px solid #ddd;
+    }
+
+    .vehicle-thumbs {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+    }
+
+    .vehicle-thumbs img {
+        width: 88px;
+        height: 66px;
+        object-fit: cover;
+        border-radius: 4px;
+        border: 1px solid #d9d9d9;
+        cursor: pointer;
+    }
+
+    .vehicle-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        margin-bottom: 14px;
+        color: #2f2f2f;
+    }
+
+    .vehicle-price {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        color: #1f6fd9;
+        font-weight: 700;
+    }
+
+    .vehicle-price span {
+        font-size: 2rem;
+        line-height: 1;
+    }
+
+    .vehicle-detail-page th {
+        width: 42%;
+        color: #202020;
+    }
+</style>
+
+<div class="vehicle-detail-page" id="vehicleDetail">
+    <div class="mb-3">
+        <div class="text-muted small">Vasita &gt; Kiralik Araclar &gt; Arac Detay</div>
+        <div class="vehicle-top-title" id="topVehicleTitle"></div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="vehicle-gallery-card shadow-sm">
+                <div id="vehicleImage"></div>
+                <div id="vehicleThumbs" class="vehicle-thumbs"></div>
             </div>
-            <div class="card-body">
-                <table class="table">
+        </div>
+
+        <div class="col-lg-5">
+            <div class="vehicle-price-card shadow-sm mb-3">
+                <div class="vehicle-price" id="vPrice"></div>
+                <div class="vehicle-location text-muted"><i class="fas fa-location-dot"></i> Antalya / Muratpasa</div>
+            </div>
+
+            <div class="vehicle-spec-card shadow-sm">
+                <h4 class="vehicle-title" id="vehicleTitle"></h4>
+                <table class="table table-sm align-middle mb-0">
                     <tr><th>Plaka</th><td id="vPlate"></td></tr>
                     <tr><th>Marka</th><td id="vBrand"></td></tr>
                     <tr><th>Model</th><td id="vModel"></td></tr>
@@ -22,53 +102,17 @@
                     <tr><th>KM</th><td id="vMileage"></td></tr>
                     <tr><th>Yolcu Kapasitesi</th><td id="vPassenger"></td></tr>
                     <tr><th>Bagaj Kapasitesi</th><td id="vLuggage"></td></tr>
-                    <tr><th>Gunluk Fiyat</th><td id="vPrice"></td></tr>
                     <tr><th>Haftalik Fiyat</th><td id="vWeekly"></td></tr>
                     <tr><th>Aylik Fiyat</th><td id="vMonthly"></td></tr>
                     <tr><th>Durum</th><td id="vStatus"></td></tr>
                     <tr><th>Aciklama</th><td id="vDescription"></td></tr>
                 </table>
             </div>
-        </div>
 
-        <div class="card shadow mt-3" id="reservationCard" style="display:none;">
-            <div class="card-header bg-success text-white">
-                <h5 class="mb-0"><i class="fas fa-calendar-plus"></i> Rezervasyon Yap</h5>
-            </div>
-            <div class="card-body">
-                <form id="reservationForm">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Baslangic Tarihi</label>
-                            <input type="date" class="form-control" id="startDate" required />
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Bitis Tarihi</label>
-                            <input type="date" class="form-control" id="endDate" required />
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Alis Yeri</label>
-                            <input type="text" class="form-control" id="pickupLocation" placeholder="Sube / Konum" />
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Teslim Yeri</label>
-                            <input type="text" class="form-control" id="dropoffLocation" placeholder="Sube / Konum" />
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label"><strong>Ek Hizmetler</strong></label>
-                        <div id="additionalServicesList"></div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Not</label>
-                        <textarea class="form-control" id="notes" rows="2"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <strong>Tahmini Toplam: <span id="estimatedTotal" class="text-success">0 TL</span></strong>
-                        <br/><small class="text-muted">Depozito: <span id="estimatedDeposit">0 TL</span></small>
-                    </div>
-                    <button type="submit" class="btn btn-success w-100">Rezervasyon Yap</button>
-                </form>
+            <div class="mt-3" id="reservationAction" style="display:none;">
+                <a href="#" id="reservationButton" class="btn btn-warning btn-lg w-100 fw-bold">
+                    <i class="fas fa-calendar-check"></i> Araci Rezervasyon Yap
+                </a>
             </div>
         </div>
     </div>
@@ -77,103 +121,78 @@
 @section Scripts {
 <script>
     var vehicleId = @vehicleId;
-    var dailyPrice = 0;
-    var services = [];
+
+    function setMainImage(url) {
+        if (!url) {
+            $("#vehicleImage").html('<div class="bg-secondary text-white d-flex align-items-center justify-content-center rounded" style="height:420px;"><i class="fas fa-car fa-5x"></i></div>');
+            return;
+        }
+
+        $("#vehicleImage").html('<img src="' + url + '" class="vehicle-main-image" />');
+    }
+
+    function renderGallery(v) {
+        var rawImages = (v.imageUrls && v.imageUrls.length > 0) ? v.imageUrls : (v.imageUrl ? [v.imageUrl] : []);
+        var images = rawImages.map(function (img) { return resolveApiFileUrl(img); }).filter(function (img) { return !!img; });
+
+        if (images.length === 0) {
+            setMainImage(null);
+            $("#vehicleThumbs").empty();
+            return;
+        }
+
+        setMainImage(images[0]);
+
+        var thumbsHtml = "";
+        $.each(images, function (i, img) {
+            thumbsHtml += '<img src="' + img + '" alt="Arac ' + (i + 1) + '" data-img="' + img + '" />';
+        });
+        $("#vehicleThumbs").html(thumbsHtml);
+    }
+
+    $(document).on("click", "#vehicleThumbs img", function () {
+        setMainImage($(this).data("img"));
+    });
 
     $(document).ready(function () {
-        var today = new Date().toISOString().split('T')[0];
-        $("#startDate").attr("min", today);
-        $("#endDate").attr("min", today);
-
         $.ajax({
             url: apiBaseUrl + "/Vehicles/" + vehicleId,
             type: "GET",
             success: function (v) {
-                dailyPrice = v.dailyPrice;
-                $("#vehicleTitle").text(v.brandName + " " + v.model + " - " + v.plate);
+                var fullTitle = (v.brandName + " " + v.model + " / " + v.plate).toUpperCase();
+                $("#vehicleTitle").text(fullTitle);
+                $("#topVehicleTitle").text(fullTitle);
+
                 $("#vPlate").text(v.plate);
                 $("#vBrand").text(v.brandName);
                 $("#vModel").text(v.model);
                 $("#vYear").text(v.year);
-                $("#vColor").text(v.color);
-                $("#vFuel").text(v.fuelType);
-                $("#vTransmission").text(v.transmissionType);
-                $("#vMileage").text(v.mileage);
-                $("#vPassenger").text(v.passengerCapacity);
-                $("#vLuggage").text(v.luggageCapacity);
-                $("#vPrice").html('<strong class="text-success">' + v.dailyPrice + ' TL / Gun</strong>');
+                $("#vColor").text(v.color || "-");
+                $("#vFuel").text(v.fuelType || "-");
+                $("#vTransmission").text(v.transmissionType || "-");
+                $("#vMileage").text(v.mileage || "-");
+                $("#vPassenger").text(v.passengerCapacity || "-");
+                $("#vLuggage").text(v.luggageCapacity || "-");
+
+                $("#vPrice").html('<span>' + v.dailyPrice + ' TL</span><small>/ Gun</small>');
                 $("#vWeekly").text(v.weeklyPrice ? v.weeklyPrice + " TL" : "-");
                 $("#vMonthly").text(v.monthlyPrice ? v.monthlyPrice + " TL" : "-");
                 $("#vDescription").text(v.description || "-");
-                var statusMap = {"Available":"Musait","Rented":"Kirada","Maintenance":"Bakimda","Damaged":"Hasarli"};
-                var statusColor = {"Available":"success","Rented":"warning","Maintenance":"info","Damaged":"danger"};
-                $("#vStatus").html('<span class="badge bg-' + (statusColor[v.vehicleStatus]||"secondary") + '">' + (statusMap[v.vehicleStatus]||v.vehicleStatus) + '</span>');
+
+                var statusMap = { "Available": "Musait", "Rented": "Kirada", "Maintenance": "Bakimda", "Damaged": "Hasarli" };
+                var statusColor = { "Available": "success", "Rented": "warning", "Maintenance": "info", "Damaged": "danger" };
+                $("#vStatus").html('<span class="badge bg-' + (statusColor[v.vehicleStatus] || "secondary") + '">' + (statusMap[v.vehicleStatus] || v.vehicleStatus) + '</span>');
+
                 if (v.vehicleStatus === "Available") {
-                    if (isLoggedIn()) $("#reservationCard").show();
-                }
-                if (v.imageUrl) $("#vehicleImage").html('<img src="' + v.imageUrl + '" class="img-fluid rounded shadow" />');
-                else $("#vehicleImage").html('<div class="bg-secondary text-white d-flex align-items-center justify-content-center rounded" style="height:350px;"><i class="fas fa-car fa-5x"></i></div>');
-            }
-        });
-
-        $.ajax({
-            url: apiBaseUrl + "/AdditionalServices",
-            type: "GET",
-            success: function (data) {
-                services = data;
-                var html = "";
-                $.each(data, function (i, s) {
-                    if (s.isActive) {
-                        html += '<div class="form-check"><input class="form-check-input svc-check" type="checkbox" value="' + s.id + '" data-price="' + s.price + '" id="svc' + s.id + '" />';
-                        html += '<label class="form-check-label" for="svc' + s.id + '">' + s.name + ' (' + s.price + ' TL/Gun)</label></div>';
+                    $("#reservationAction").show();
+                    if (isLoggedIn()) {
+                        $("#reservationButton").attr("href", "/Reservation/Create?vehicleId=" + vehicleId);
+                    } else {
+                        $("#reservationButton").attr("href", "/Auth/Login");
                     }
-                });
-                if (!html) html = '<small class="text-muted">Ek hizmet bulunmamaktadir.</small>';
-                $("#additionalServicesList").html(html);
-            }
-        });
-    });
+                }
 
-    function calcTotal() {
-        var s = new Date($("#startDate").val()), e = new Date($("#endDate").val());
-        if (s && e && e > s) {
-            var days = Math.ceil((e - s) / (1000 * 60 * 60 * 24));
-            var svcTotal = 0;
-            $(".svc-check:checked").each(function () { svcTotal += parseFloat($(this).data("price")); });
-            var total = (dailyPrice + svcTotal) * days;
-            $("#estimatedTotal").text(total + " TL");
-            $("#estimatedDeposit").text((dailyPrice * 3) + " TL");
-        }
-    }
-
-    $("#startDate, #endDate").change(calcTotal);
-    $(document).on("change", ".svc-check", calcTotal);
-
-    $("#reservationForm").submit(function (e) {
-        e.preventDefault();
-        if (!isLoggedIn()) { window.location.href = "/Auth/Login"; return; }
-        var selectedSvcs = [];
-        $(".svc-check:checked").each(function () { selectedSvcs.push(parseInt($(this).val())); });
-        $.ajax({
-            url: apiBaseUrl + "/Reservations",
-            type: "POST",
-            contentType: "application/json",
-            data: JSON.stringify({
-                startDate: $("#startDate").val(), endDate: $("#endDate").val(),
-                notes: $("#notes").val(), vehicleId: vehicleId,
-                pickupLocation: $("#pickupLocation").val(), dropoffLocation: $("#dropoffLocation").val(),
-                additionalServiceIds: selectedSvcs
-            }),
-            success: function (res) {
-                showAlert("Rezervasyon olusturuldu! Toplam: " + res.totalPrice + " TL, Depozito: " + res.depositAmount + " TL", "success");
-                $("#reservationForm")[0].reset();
-                $("#estimatedTotal").text("0 TL");
-                $("#estimatedDeposit").text("0 TL");
-            },
-            error: function (xhr) {
-                var msg = "Rezervasyon olusturulamadi.";
-                if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
-                showAlert(msg, "danger");
+                renderGallery(v);
             }
         });
     });

@@ -8,7 +8,7 @@ namespace AracKiralamaPortali.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Employee")]
     public class AdditionalServicesController : ControllerBase
     {
         private readonly IRepository<AdditionalService> _repository;

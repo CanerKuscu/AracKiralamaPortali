@@ -77,8 +77,9 @@
             success: function (data) {
                 var html = "";
                 $.each(data, function (i, v) {
+                    var imageUrl = resolveApiFileUrl((v.imageUrls && v.imageUrls.length > 0 ? v.imageUrls[0] : v.imageUrl));
                     html += '<div class="col-md-4 mb-4"><div class="card h-100 shadow-sm">';
-                    if (v.imageUrl) html += '<img src="' + v.imageUrl + '" class="card-img-top" style="height:200px;object-fit:cover;" />';
+                    if (imageUrl) html += '<img src="' + imageUrl + '" class="card-img-top" style="height:200px;object-fit:cover;" />';
                     else html += '<div class="bg-secondary text-white d-flex align-items-center justify-content-center" style="height:200px;"><i class="fas fa-car fa-3x"></i></div>';
                     html += '<div class="card-body"><h5 class="card-title">' + v.brandName + ' ' + v.model + '</h5>';
                     html += '<p><strong>Plaka:</strong> ' + v.plate + '<br/><strong>Yil:</strong> ' + v.year + '<br/><strong>Renk:</strong> ' + v.color;

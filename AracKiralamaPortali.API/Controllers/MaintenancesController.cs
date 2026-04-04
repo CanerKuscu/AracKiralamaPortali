@@ -9,7 +9,7 @@ namespace AracKiralamaPortali.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Employee")]
     public class MaintenancesController : ControllerBase
     {
         private readonly IRepository<Maintenance> _repository;

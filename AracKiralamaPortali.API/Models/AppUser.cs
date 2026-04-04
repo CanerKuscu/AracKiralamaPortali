@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
 
 namespace AracKiralamaPortali.API.Models
@@ -26,7 +27,14 @@ namespace AracKiralamaPortali.API.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public bool IsActive { get; set; } = true;
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
 
+        [JsonIgnore]
         public ICollection<Reservation> Reservations { get; set; } = new List<Reservation>();
+        [JsonIgnore]
+        public ICollection<Review> Reviews { get; set; } = new List<Review>();
+        [JsonIgnore]
+        public ICollection<Vehicle> Vehicles { get; set; } = new List<Vehicle>();
     }
 }

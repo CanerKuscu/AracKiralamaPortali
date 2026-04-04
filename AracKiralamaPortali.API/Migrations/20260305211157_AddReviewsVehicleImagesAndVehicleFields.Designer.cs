@@ -4,6 +4,7 @@ using AracKiralamaPortali.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AracKiralamaPortali.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260305211157_AddReviewsVehicleImagesAndVehicleFields")]
+    partial class AddReviewsVehicleImagesAndVehicleFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -73,9 +76,6 @@ namespace AracKiralamaPortali.API.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
@@ -91,9 +91,6 @@ namespace AracKiralamaPortali.API.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsBlackListed")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
                     b.Property<string>("LicenseClass")
@@ -434,9 +431,6 @@ namespace AracKiralamaPortali.API.Migrations
                     b.Property<decimal?>("MonthlyPrice")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("OwnerId")
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<int>("PassengerCapacity")
                         .HasColumnType("int");
 
@@ -464,8 +458,6 @@ namespace AracKiralamaPortali.API.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BrandId");
-
-                    b.HasIndex("OwnerId");
 
                     b.ToTable("Vehicles");
                 });
@@ -723,14 +715,7 @@ namespace AracKiralamaPortali.API.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("AracKiralamaPortali.API.Models.AppUser", "Owner")
-                        .WithMany("Vehicles")
-                        .HasForeignKey("OwnerId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("Brand");
-
-                    b.Navigation("Owner");
                 });
 
             modelBuilder.Entity("AracKiralamaPortali.API.Models.VehicleImage", b =>
@@ -805,8 +790,6 @@ namespace AracKiralamaPortali.API.Migrations
                     b.Navigation("Reservations");
 
                     b.Navigation("Reviews");
-
-                    b.Navigation("Vehicles");
                 });
 
             modelBuilder.Entity("AracKiralamaPortali.API.Models.Brand", b =>

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace AracKiralamaPortali.API.Models
 {
@@ -19,6 +20,7 @@ namespace AracKiralamaPortali.API.Models
         public string Status { get; set; } = "Completed";
 
         public int ReservationId { get; set; }
+        [JsonIgnore]
         public Reservation Reservation { get; set; } = null!;
     }
 }

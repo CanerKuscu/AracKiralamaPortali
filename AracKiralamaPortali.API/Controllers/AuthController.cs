@@ -34,6 +34,11 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
+            // UserName benzersizlik kontrolü
+            var existingUser = await _userManager.FindByNameAsync(dto.UserName);
+            if (existingUser != null)
+                return BadRequest(new { message = "This username is already taken." });
+
             var user = new AppUser
             {
                 FullName = dto.FullName,
@@ -50,23 +55,29 @@ namespace AracKiralamaPortali.API.Controllers
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
-            await _userManager.AddToRoleAsync(user, "User");
-            return Ok(new { message = "Registration successful." });
+            var roleToAssign = "User";
+            if (!string.IsNullOrEmpty(dto.Role) && (dto.Role == "User" || dto.Role == "CarOwner"))
+            {
+                roleToAssign = dto.Role;
+            }
+
+            await _userManager.AddToRoleAsync(user, roleToAssign);
+            return Ok(new { message = "Kayýt iþlemi baþarýlý." });
         }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
-            var user = await _userManager.FindByNameAsync(dto.UserName);
-            if (user == null)
-                return Unauthorized(new { message = "Invalid username or password." });
+            var user = await _userManager.FindByEmailAsync(dto.Email);
+            if (user == null || user.IsDeleted)
+                return Unauthorized(new { message = "E-posta veya þifre hatalý." });
 
             if (!user.IsActive)
-                return Unauthorized(new { message = "Account is deactivated." });
+                return Unauthorized(new { message = "Hesabýnýz pasif durumda." });
 
             var result = await _signInManager.CheckPasswordSignInAsync(user, dto.Password, false);
             if (!result.Succeeded)
-                return Unauthorized(new { message = "Invalid username or password." });
+                return Unauthorized(new { message = "E-posta veya þifre hatalý." });
 
             var token = await GenerateJwtToken(user);
             return Ok(new { token });
@@ -76,7 +87,7 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpGet("users")]
         public async Task<IActionResult> GetUsers()
         {
-            var users = _userManager.Users.ToList();
+            var users = _userManager.Users.Where(u => !u.IsDeleted).ToList();
             var userDtos = new List<UserDto>();
 
             foreach (var user in users)
@@ -109,7 +120,7 @@ namespace AracKiralamaPortali.API.Controllers
         public async Task<IActionResult> GetUser(string id)
         {
             var user = await _userManager.FindByIdAsync(id);
-            if (user == null)
+            if (user == null || user.IsDeleted)
                 return NotFound();
 
             var roles = await _userManager.GetRolesAsync(user);
@@ -157,7 +168,7 @@ namespace AracKiralamaPortali.API.Controllers
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
-            return Ok(new { message = "User updated successfully." });
+            return Ok(new { message = "Kullanýcý baþarýyla güncellendi." });
         }
 
         [Authorize(Roles = "Admin")]
@@ -168,11 +179,16 @@ namespace AracKiralamaPortali.API.Controllers
             if (user == null)
                 return NotFound();
 
-            var result = await _userManager.DeleteAsync(user);
+            // Soft Delete - Veritabanýndan silme deðil, iþaretleme
+            user.IsDeleted = true;
+            user.DeletedAt = DateTime.UtcNow;
+            user.IsActive = false;
+
+            var result = await _userManager.UpdateAsync(user);
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
-            return Ok(new { message = "User deleted successfully." });
+            return Ok(new { message = "Kullanýcý hesabý pasife alýndý." });
         }
 
         [Authorize]
@@ -188,7 +204,7 @@ namespace AracKiralamaPortali.API.Controllers
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
-            return Ok(new { message = "Password changed successfully." });
+            return Ok(new { message = "Þifre baþarýyla deðiþtirildi." });
         }
 
         [Authorize]
@@ -197,7 +213,7 @@ namespace AracKiralamaPortali.API.Controllers
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var user = await _userManager.FindByIdAsync(userId!);
-            if (user == null)
+            if (user == null || user.IsDeleted)
                 return NotFound();
 
             var roles = await _userManager.GetRolesAsync(user);
@@ -228,10 +244,10 @@ namespace AracKiralamaPortali.API.Controllers
         {
             var user = await _userManager.FindByIdAsync(dto.UserId);
             if (user == null)
-                return NotFound(new { message = "User not found." });
+                return NotFound(new { message = "Kullanýcý bulunamadý." });
 
             if (!await _roleManager.RoleExistsAsync(dto.RoleName))
-                return BadRequest(new { message = "Role does not exist." });
+                return BadRequest(new { message = "Belirtilen rol bulunamadý." });
 
             var currentRoles = await _userManager.GetRolesAsync(user);
             await _userManager.RemoveFromRolesAsync(user, currentRoles);
@@ -240,7 +256,7 @@ namespace AracKiralamaPortali.API.Controllers
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
-            return Ok(new { message = "Role assigned successfully." });
+            return Ok(new { message = "Rol baþarýyla atandý." });
         }
 
         [Authorize(Roles = "Admin")]

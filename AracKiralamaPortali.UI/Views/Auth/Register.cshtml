@@ -46,6 +46,13 @@
                             <input type="date" class="form-control" id="licenseIssueDate" />
                         </div>
                         <div class="col-md-6 mb-3">
+                            <label class="form-label">Kayýt Türü</label>
+                            <select class="form-select" id="role" required>
+                                <option value="User">Normal Üye</option>
+                                <option value="CarOwner">Araç Sahibi</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
                             <label class="form-label">Sifre</label>
                             <input type="password" class="form-control" id="password" required minlength="6" />
                         </div>
@@ -81,14 +88,15 @@
                 tcKimlik: $("#tcKimlik").val(),
                 address: $("#address").val(),
                 licenseClass: $("#licenseClass").val() || null,
-                licenseIssueDate: $("#licenseIssueDate").val() || null
+                licenseIssueDate: $("#licenseIssueDate").val() || null,
+                role: $("#role").val()
             }),
             success: function () {
-                showAlert("Kayit basarili! Giris yapabilirsiniz.", "success");
+                showAlert("Kayýt baþarýlý! Giriþ yapabilirsiniz.", "success");
                 setTimeout(function () { window.location.href = "/Auth/Login"; }, 1500);
             },
             error: function (xhr) {
-                var msg = "Kayit basarisiz.";
+                var msg = "Kayýt baþarýsýz.";
                 if (xhr.responseJSON && Array.isArray(xhr.responseJSON))
                     msg = xhr.responseJSON.map(function (e) { return e.description; }).join("<br/>");
                 showAlert(msg, "danger");

@@ -24,6 +24,13 @@ namespace AracKiralamaPortali.API.DTOs
         public int LuggageCapacity { get; set; }
         public int BrandId { get; set; }
         public string BrandName { get; set; } = null!;
+        public DateTime? InsuranceExpiryDate { get; set; }
+        public DateTime? InspectionExpiryDate { get; set; }
+        public bool HasAccidentHistory { get; set; }
+        public double AverageRating { get; set; }
+        public int ReviewCount { get; set; }
+        public List<string> ImageUrls { get; set; } = new();
+        public string? OwnerId { get; set; }
     }
 
     public class VehicleCreateDto
@@ -58,6 +65,10 @@ namespace AracKiralamaPortali.API.DTOs
         public int PassengerCapacity { get; set; } = 5;
         public int LuggageCapacity { get; set; } = 2;
         public int BrandId { get; set; }
+        public string? BrandName { get; set; }
+        public DateTime? InsuranceExpiryDate { get; set; }
+        public DateTime? InspectionExpiryDate { get; set; }
+        public bool HasAccidentHistory { get; set; }
     }
 
     public class VehicleUpdateDto
@@ -97,5 +108,10 @@ namespace AracKiralamaPortali.API.DTOs
         public int PassengerCapacity { get; set; }
         public int LuggageCapacity { get; set; }
         public int BrandId { get; set; }
+        public string? BrandName { get; set; }
+        public DateTime? InsuranceExpiryDate { get; set; }
+        public DateTime? InspectionExpiryDate { get; set; }
+        public bool HasAccidentHistory { get; set; }
     }
 }
+

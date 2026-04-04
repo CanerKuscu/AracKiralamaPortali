@@ -37,6 +37,9 @@
                     <li class="nav-item d-none" id="navMyReservations">
                         <a class="nav-link" asp-controller="Reservation" asp-action="MyReservations"><i class="fas fa-calendar-alt"></i> Rezervasyonlarim</a>
                     </li>
+                    <li class="nav-item d-none" id="navMyVehicles">
+                        <a class="nav-link" asp-controller="Admin" asp-action="Vehicles"><i class="fas fa-car-side"></i> Araclarim (Kiralaya Ver)</a>
+                    </li>
                     <li class="nav-item dropdown d-none" id="navAdmin">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"><i class="fas fa-cogs"></i> Yonetim</a>
                         <ul class="dropdown-menu">
@@ -121,16 +124,33 @@
             $("#alertContainer").html('<div class="alert alert-' + type + ' alert-dismissible fade show">' + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
         }
 
+        function getApiRootUrl() {
+            return apiBaseUrl.replace(/\/api\/?$/, "");
+        }
+
+        function resolveApiFileUrl(url) {
+            if (!url) return null;
+            if (url.startsWith("http://") || url.startsWith("https://")) return url;
+            return getApiRootUrl() + (url.startsWith("/") ? url : "/" + url);
+        }
+
         function updateNavbar() {
             if (isLoggedIn()) {
                 var u = getUserInfo();
                 $("#navLogin, #navRegister").addClass("d-none");
                 $("#navProfile, #navMyReservations").removeClass("d-none");
+                
+                if (u && (u.role === "Admin" || u.role === "CarOwner")) {
+                    $("#navMyVehicles").removeClass("d-none");
+                } else {
+                    $("#navMyVehicles").addClass("d-none");
+                }
+                
                 $("#navUserName").text(u.fullName);
                 if (isAdmin()) $("#navAdmin").removeClass("d-none");
             } else {
                 $("#navLogin, #navRegister").removeClass("d-none");
-                $("#navProfile, #navMyReservations, #navAdmin").addClass("d-none");
+                $("#navProfile, #navMyReservations, #navMyVehicles, #navAdmin").addClass("d-none");
             }
         }
 

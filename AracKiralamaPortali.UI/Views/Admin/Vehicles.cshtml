@@ -23,6 +23,7 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+                <div id="modalAlertContainer"></div>
                 <form id="vehicleForm">
                     <input type="hidden" id="vehicleId" />
                     <div class="row">
@@ -32,7 +33,8 @@
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Marka</label>
-                            <select class="form-select" id="vBrandId" required></select>
+                            <input type="text" class="form-control" id="vBrandName" placeholder="Marka girin" required />
+                            <input type="hidden" id="vBrandId" />
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Model</label>
@@ -97,8 +99,13 @@
                             </select>
                         </div>
                         <div class="col-md-12 mb-3">
-                            <label class="form-label">Resim URL</label>
-                            <input type="text" class="form-control" id="vImageUrl" />
+                            <label class="form-label">Fotoðraflar</label>
+                            <input type="file" class="form-control" id="vImageFiles" multiple accept="image/*" />
+                            <small class="text-muted">Birden fazla fotoðraf seçebilirsiniz</small>
+                        </div>
+                        <div class="col-md-12 mb-3" id="uploadedImagesDiv" style="display: none;">
+                            <label class="form-label">Yüklenen Fotoðraflar</label>
+                            <div id="uploadedImagesList" class="row g-2"></div>
                         </div>
                         <div class="col-md-12 mb-3">
                             <label class="form-label">Aciklama</label>
@@ -120,21 +127,53 @@
 
 @section Scripts {
 <script>
+    var uploadedVehicleImages = [];
+
     $(document).ready(function () {
-        if (!isAdmin()) { window.location.href = "/"; return; }
-        loadBrandOptions();
+        var u = getUserInfo();
+        if (!u || (u.role !== "Admin" && u.role !== "CarOwner")) { window.location.href = "/"; return; }
         loadVehicles();
+        setupImageUpload();
     });
 
-    function loadBrandOptions() {
-        $.ajax({
-            url: apiBaseUrl + "/Brands", type: "GET",
-            success: function (data) {
-                var html = "";
-                $.each(data, function (i, b) { html += '<option value="' + b.id + '">' + b.name + '</option>'; });
-                $("#vBrandId").html(html);
+    function showModalAlert(msg, type) {
+        $("#modalAlertContainer").html('<div class="alert alert-' + type + ' alert-dismissible fade show">' + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+    }
+
+    function setupImageUpload() {
+        $("#vImageFiles").on("change", function () {
+            var files = this.files;
+            if (files.length > 0) {
+                $("#uploadedImagesDiv").show();
             }
         });
+    }
+
+    function uploadVehicleImages(vehicleId) {
+        var files = $("#vImageFiles")[0].files;
+        if (files.length === 0) return Promise.resolve();
+
+        var uploadPromises = [];
+        for (var i = 0; i < files.length; i++) {
+            var formData = new FormData();
+            formData.append("file", files[i]);
+            formData.append("vehicleId", vehicleId);
+
+            uploadPromises.push(
+                $.ajax({
+                    url: apiBaseUrl + "/Upload/vehicle-image", type: "POST",
+                    data: formData, contentType: false, processData: false,
+                    success: function (response) {
+                        uploadedVehicleImages.push(response);
+                    },
+                    error: function (xhr) {
+                        var serverMessage = xhr && xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : "Bazý fotoðraflar yüklenemedi.";
+                        showModalAlert(serverMessage, "warning");
+                    }
+                })
+            );
+        }
+        return Promise.all(uploadPromises);
     }
 
     var statusMap = {"Available":"Musait","Rented":"Kirada","Maintenance":"Bakimda","Damaged":"Hasarli"};
@@ -145,7 +184,9 @@
             url: apiBaseUrl + "/Vehicles", type: "GET",
             success: function (data) {
                 var html = "";
+                var u = getUserInfo();
                 $.each(data, function (i, v) {
+                    if (u.role !== "Admin" && v.ownerId !== u.id) return;
                     html += "<tr><td>" + v.id + "</td><td>" + v.plate + "</td><td>" + v.brandName + "</td><td>" + v.model + "</td><td>" + v.year + "</td><td>" + v.color + "</td><td>" + v.fuelType + "</td><td>" + v.transmissionType + "</td><td>" + v.dailyPrice + " TL</td>";
                     html += '<td><span class="badge bg-' + (statusColor[v.vehicleStatus]||"secondary") + '">' + (statusMap[v.vehicleStatus]||v.vehicleStatus) + '</span></td>';
                     html += '<td><button class="btn btn-sm btn-warning me-1" onclick="editVehicle(' + v.id + ')"><i class="fas fa-edit"></i></button>';
@@ -157,14 +198,23 @@
     }
 
     function openAddModal() {
+        uploadedVehicleImages = [];
+        $("#modalAlertContainer").html("");
         $("#vehicleModalTitle").text("Arac Ekle");
         $("#vehicleId").val("");
         $("#vehicleForm")[0].reset();
+        $("#vBrandName").val("");
+        $("#vBrandId").val("");
+        $("#vImageFiles").val("");
+        $("#uploadedImagesDiv").hide();
+        $("#uploadedImagesList").html("");
         $("#vStatusDiv, #vActiveDiv").addClass("d-none");
         new bootstrap.Modal(document.getElementById("vehicleModal")).show();
     }
 
     function editVehicle(id) {
+        uploadedVehicleImages = [];
+        $("#modalAlertContainer").html("");
         $.ajax({
             url: apiBaseUrl + "/Vehicles/" + id, type: "GET",
             success: function (v) {
@@ -173,6 +223,7 @@
                 $("#vPlate").val(v.plate);
                 $("#vModel").val(v.model);
                 $("#vBrandId").val(v.brandId);
+                $("#vBrandName").val(v.brandName);
                 $("#vYear").val(v.year);
                 $("#vColor").val(v.color);
                 $("#vDailyPrice").val(v.dailyPrice);
@@ -183,10 +234,22 @@
                 $("#vMileage").val(v.mileage);
                 $("#vPassengerCapacity").val(v.passengerCapacity);
                 $("#vLuggageCapacity").val(v.luggageCapacity);
-                $("#vImageUrl").val(v.imageUrl);
                 $("#vDescription").val(v.description);
                 $("#vVehicleStatus").val(v.vehicleStatus);
                 $("#vIsActive").prop("checked", v.isActive);
+                $("#vImageFiles").val("");
+                
+                // Show existing images
+                if (v.imageUrls && v.imageUrls.length > 0) {
+                    var html = "";
+                    $.each(v.imageUrls, function (i, url) {
+                        var imageUrl = resolveApiFileUrl(url);
+                        html += '<div class="col-md-3"><div class="card"><img src="' + imageUrl + '" class="card-img-top" style="height: 150px; object-fit: cover;"><div class="card-body p-2"><small>Mevcut</small></div></div></div>';
+                    });
+                    $("#uploadedImagesList").html(html);
+                    $("#uploadedImagesDiv").show();
+                }
+                
                 $("#vStatusDiv, #vActiveDiv").removeClass("d-none");
                 new bootstrap.Modal(document.getElementById("vehicleModal")).show();
             }
@@ -196,34 +259,50 @@
     $("#vehicleForm").submit(function (e) {
         e.preventDefault();
         var id = $("#vehicleId").val();
+        var brandName = $("#vBrandName").val();
+        
+        if (!brandName || brandName.trim() === "") {
+            showModalAlert("Lütfen bir marka yazýn.", "warning");
+            return;
+        }
+
+        var vehicleData = {
+            plate: $("#vPlate").val(), model: $("#vModel").val(), year: parseInt($("#vYear").val()), color: $("#vColor").val(),
+            dailyPrice: parseFloat($("#vDailyPrice").val()), weeklyPrice: parseFloat($("#vWeeklyPrice").val()) || null,
+            monthlyPrice: parseFloat($("#vMonthlyPrice").val()) || null, description: $("#vDescription").val(),
+            imageUrl: null, fuelType: $("#vFuelType").val(), transmissionType: $("#vTransmissionType").val(),
+            mileage: parseInt($("#vMileage").val()), passengerCapacity: parseInt($("#vPassengerCapacity").val()),
+            luggageCapacity: parseInt($("#vLuggageCapacity").val()), brandId: parseInt($("#vBrandId").val()) || 0, brandName: brandName
+        };
+
         if (id) {
+            vehicleData.vehicleStatus = $("#vVehicleStatus").val();
+            vehicleData.isActive = $("#vIsActive").is(":checked");
+            
             $.ajax({
                 url: apiBaseUrl + "/Vehicles/" + id, type: "PUT", contentType: "application/json",
-                data: JSON.stringify({
-                    plate: $("#vPlate").val(), model: $("#vModel").val(), year: parseInt($("#vYear").val()), color: $("#vColor").val(),
-                    dailyPrice: parseFloat($("#vDailyPrice").val()), weeklyPrice: parseFloat($("#vWeeklyPrice").val()) || null,
-                    monthlyPrice: parseFloat($("#vMonthlyPrice").val()) || null, description: $("#vDescription").val(),
-                    imageUrl: $("#vImageUrl").val(), fuelType: $("#vFuelType").val(), transmissionType: $("#vTransmissionType").val(),
-                    mileage: parseInt($("#vMileage").val()), passengerCapacity: parseInt($("#vPassengerCapacity").val()),
-                    luggageCapacity: parseInt($("#vLuggageCapacity").val()), brandId: parseInt($("#vBrandId").val()),
-                    vehicleStatus: $("#vVehicleStatus").val(), isActive: $("#vIsActive").is(":checked")
-                }),
-                success: function () { bootstrap.Modal.getInstance(document.getElementById("vehicleModal")).hide(); showAlert("Guncellendi.", "success"); loadVehicles(); },
-                error: function () { showAlert("Hata.", "danger"); }
+                data: JSON.stringify(vehicleData),
+                success: function () {
+                    uploadVehicleImages(id).then(function () {
+                        bootstrap.Modal.getInstance(document.getElementById("vehicleModal")).hide();
+                        showAlert("Guncellendi.", "success");
+                        loadVehicles();
+                    });
+                },
+                error: function (xhr) { showModalAlert("Hata: Araç güncellenemedi.", "danger"); }
             });
         } else {
             $.ajax({
                 url: apiBaseUrl + "/Vehicles", type: "POST", contentType: "application/json",
-                data: JSON.stringify({
-                    plate: $("#vPlate").val(), model: $("#vModel").val(), year: parseInt($("#vYear").val()), color: $("#vColor").val(),
-                    dailyPrice: parseFloat($("#vDailyPrice").val()), weeklyPrice: parseFloat($("#vWeeklyPrice").val()) || null,
-                    monthlyPrice: parseFloat($("#vMonthlyPrice").val()) || null, description: $("#vDescription").val(),
-                    imageUrl: $("#vImageUrl").val(), fuelType: $("#vFuelType").val(), transmissionType: $("#vTransmissionType").val(),
-                    mileage: parseInt($("#vMileage").val()), passengerCapacity: parseInt($("#vPassengerCapacity").val()),
-                    luggageCapacity: parseInt($("#vLuggageCapacity").val()), brandId: parseInt($("#vBrandId").val())
-                }),
-                success: function () { bootstrap.Modal.getInstance(document.getElementById("vehicleModal")).hide(); showAlert("Eklendi.", "success"); loadVehicles(); },
-                error: function () { showAlert("Hata.", "danger"); }
+                data: JSON.stringify(vehicleData),
+                success: function (response) {
+                    uploadVehicleImages(response.id).then(function () {
+                        bootstrap.Modal.getInstance(document.getElementById("vehicleModal")).hide();
+                        showAlert("Eklendi.", "success");
+                        loadVehicles();
+                    });
+                },
+                error: function (xhr) { showModalAlert("Hata: Araç eklenemedi.", "danger"); }
             });
         }
     });

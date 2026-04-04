@@ -24,19 +24,19 @@ namespace AracKiralamaPortali.API.DTOs
 
     public class ReservationCreateDto
     {
-        [Required]
+        [Required(ErrorMessage = "Baþlangýç tarihi zorunludur.")]
         public DateTime StartDate { get; set; }
 
-        [Required]
+        [Required(ErrorMessage = "Bitiþ tarihi zorunludur.")]
         public DateTime EndDate { get; set; }
 
-        [MaxLength(500)]
+        [MaxLength(500, ErrorMessage = "Not alaný en fazla 500 karakter olabilir.")]
         public string? Notes { get; set; }
 
-        [MaxLength(200)]
+        [MaxLength(200, ErrorMessage = "Teslim alma konumu en fazla 200 karakter olabilir.")]
         public string? PickupLocation { get; set; }
 
-        [MaxLength(200)]
+        [MaxLength(200, ErrorMessage = "Teslim býrakma konumu en fazla 200 karakter olabilir.")]
         public string? DropoffLocation { get; set; }
 
         public int VehicleId { get; set; }
@@ -45,16 +45,17 @@ namespace AracKiralamaPortali.API.DTOs
 
     public class ReservationUpdateDto
     {
-        [Required]
+        [Required(ErrorMessage = "Baþlangýç tarihi zorunludur.")]
         public DateTime StartDate { get; set; }
 
-        [Required]
+        [Required(ErrorMessage = "Bitiþ tarihi zorunludur.")]
         public DateTime EndDate { get; set; }
 
-        [Required, MaxLength(50)]
+        [Required(ErrorMessage = "Durum alaný zorunludur.")]
+        [MaxLength(50, ErrorMessage = "Durum alaný en fazla 50 karakter olabilir.")]
         public string Status { get; set; } = null!;
 
-        [MaxLength(500)]
+        [MaxLength(500, ErrorMessage = "Not alaný en fazla 500 karakter olabilir.")]
         public string? Notes { get; set; }
     }
 }

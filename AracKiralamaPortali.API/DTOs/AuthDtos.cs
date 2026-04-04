@@ -4,16 +4,20 @@ namespace AracKiralamaPortali.API.DTOs
 {
     public class RegisterDto
     {
-        [Required]
+        [Required(ErrorMessage = "Ad soyad alaný zorunludur.")]
         public string FullName { get; set; } = null!;
 
-        [Required, EmailAddress]
+        [Required(ErrorMessage = "E-posta alaný zorunludur.")]
+        [EmailAddress(ErrorMessage = "Geçerli bir e-posta adresi giriniz.")]
         public string Email { get; set; } = null!;
 
-        [Required]
+        [Required(ErrorMessage = "Kullanýcý adý alaný zorunludur.")]
+        [RegularExpression(@"^[a-zA-Z0-9_]{3,20}$",
+            ErrorMessage = "Kullanýcý adý 3-20 karakter olmalý ve yalnýzca harf, rakam veya alt çizgi içermelidir.")]
         public string UserName { get; set; } = null!;
 
-        [Required, MinLength(6)]
+        [Required(ErrorMessage = "Þifre alaný zorunludur.")]
+        [MinLength(6, ErrorMessage = "Þifre en az 6 karakter olmalýdýr.")]
         public string Password { get; set; } = null!;
 
         public string? PhoneNumber { get; set; }
@@ -21,14 +25,16 @@ namespace AracKiralamaPortali.API.DTOs
         public string? Address { get; set; }
         public string? LicenseClass { get; set; }
         public DateTime? LicenseIssueDate { get; set; }
+        public string? Role { get; set; }
     }
 
     public class LoginDto
     {
-        [Required]
-        public string UserName { get; set; } = null!;
+        [Required(ErrorMessage = "E-posta alaný zorunludur.")]
+        [EmailAddress(ErrorMessage = "Geçerli bir e-posta adresi giriniz.")]
+        public string Email { get; set; } = null!;
 
-        [Required]
+        [Required(ErrorMessage = "Þifre alaný zorunludur.")]
         public string Password { get; set; } = null!;
     }
 
@@ -52,10 +58,11 @@ namespace AracKiralamaPortali.API.DTOs
 
     public class UserUpdateDto
     {
-        [Required]
+        [Required(ErrorMessage = "Ad soyad alaný zorunludur.")]
         public string FullName { get; set; } = null!;
 
-        [Required, EmailAddress]
+        [Required(ErrorMessage = "E-posta alaný zorunludur.")]
+        [EmailAddress(ErrorMessage = "Geçerli bir e-posta adresi giriniz.")]
         public string Email { get; set; } = null!;
 
         public string? PhoneNumber { get; set; }
@@ -70,19 +77,20 @@ namespace AracKiralamaPortali.API.DTOs
 
     public class ChangePasswordDto
     {
-        [Required]
+        [Required(ErrorMessage = "Mevcut þifre alaný zorunludur.")]
         public string CurrentPassword { get; set; } = null!;
 
-        [Required, MinLength(6)]
+        [Required(ErrorMessage = "Yeni þifre alaný zorunludur.")]
+        [MinLength(6, ErrorMessage = "Yeni þifre en az 6 karakter olmalýdýr.")]
         public string NewPassword { get; set; } = null!;
     }
 
     public class RoleAssignDto
     {
-        [Required]
+        [Required(ErrorMessage = "Kullanýcý alaný zorunludur.")]
         public string UserId { get; set; } = null!;
 
-        [Required]
+        [Required(ErrorMessage = "Rol alaný zorunludur.")]
         public string RoleName { get; set; } = null!;
     }
 }

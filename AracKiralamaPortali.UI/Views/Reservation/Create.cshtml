@@ -1,0 +1,293 @@
+@{
+    ViewData["Title"] = "Rezervasyon Al";
+    var vehicleId = ViewData["VehicleId"];
+}
+
+<div class="row g-4">
+    <div class="col-lg-5" id="reservationVehicleSummary"></div>
+    <div class="col-lg-7">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-calendar-plus"></i> Rezervasyon Yap</h5>
+            </div>
+            <div class="card-body">
+                <form id="reservationForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Baslangic Tarihi</label>
+                            <input type="date" class="form-control" id="startDate" required />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Bitis Tarihi</label>
+                            <input type="date" class="form-control" id="endDate" required />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Alis Yeri</label>
+                            <input type="text" class="form-control" id="pickupLocation" placeholder="Sube / Konum" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Teslim Yeri</label>
+                            <input type="text" class="form-control" id="dropoffLocation" placeholder="Sube / Konum" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Ek Hizmetler</strong></label>
+                        <div id="additionalServicesList"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Not</label>
+                        <textarea class="form-control" id="notes" rows="2"></textarea>
+                    </div>
+                    <div class="card bg-light border-0 mb-3">
+                        <div class="card-body">
+                            <label class="form-label mb-2"><strong>Odeme Bilgileri</strong></label>
+                            <div id="paymentSimulationFields">
+                                <div class="mb-2">
+                                    <label class="form-label">Odeme Yontemi</label>
+                                    <select class="form-select" id="paymentMethod" required>
+                                        <option value="Kredi Karti">Kredi Karti</option>
+                                        <option value="Nakit">Nakit</option>
+                                        <option value="Havale">Havale</option>
+                                    </select>
+                                </div>
+                                <div id="cardFields">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-2">
+                                            <input type="text" class="form-control" id="cardHolder" placeholder="Kart Uzerindeki Isim" />
+                                        </div>
+                                        <div class="col-md-6 mb-2">
+                                            <input type="text" class="form-control" id="cardNumber" placeholder="Kart Numarasi (16 hane)" maxlength="16" />
+                                        </div>
+                                        <div class="col-md-6 mb-2">
+                                            <input type="text" class="form-control" id="cardExpiry" placeholder="AA/YY" maxlength="5" />
+                                        </div>
+                                        <div class="col-md-6 mb-2">
+                                            <input type="text" class="form-control" id="cardCvv" placeholder="CVV" maxlength="3" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Tahmini Toplam: <span id="estimatedTotal" class="text-success">0 TL</span></strong>
+                        <br/><small class="text-muted">Depozito: <span id="estimatedDeposit">0 TL</span></small>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100">Rezervasyon Yap</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    var vehicleId = @vehicleId;
+    var dailyPrice = 0;
+    var reservationInProgress = false;
+
+    $(document).ready(function () {
+        if (!isLoggedIn()) {
+            window.location.href = "/Auth/Login";
+            return;
+        }
+
+        var today = new Date().toISOString().split('T')[0];
+        $("#startDate").attr("min", today);
+        $("#endDate").attr("min", today);
+        $("#startDate").val(today);
+        var tomorrow = addDays(today, 1);
+        $("#endDate").attr("min", tomorrow);
+        $("#endDate").val(tomorrow);
+
+        toggleCardFields();
+
+        $.ajax({
+            url: apiBaseUrl + "/Vehicles/" + vehicleId,
+            type: "GET",
+            success: function (v) {
+                dailyPrice = v.dailyPrice;
+                var imageUrl = resolveApiFileUrl((v.imageUrls && v.imageUrls.length > 0 ? v.imageUrls[0] : v.imageUrl));
+                var html = '<div class="card shadow">';
+                if (imageUrl) html += '<img src="' + imageUrl + '" class="card-img-top" style="height:260px;object-fit:cover;" />';
+                else html += '<div class="bg-secondary text-white d-flex align-items-center justify-content-center" style="height:260px;"><i class="fas fa-car fa-4x"></i></div>';
+                html += '<div class="card-body">';
+                html += '<h5 class="card-title">' + v.brandName + ' ' + v.model + '</h5>';
+                html += '<p class="mb-2"><strong>Plaka:</strong> ' + v.plate + '</p>';
+                html += '<p class="mb-0"><strong>Gunluk Fiyat:</strong> <span class="text-success">' + v.dailyPrice + ' TL / Gun</span></p>';
+                html += '</div></div>';
+                $("#reservationVehicleSummary").html(html);
+            }
+        });
+
+        $.ajax({
+            url: apiBaseUrl + "/AdditionalServices",
+            type: "GET",
+            success: function (data) {
+                var html = "";
+                $.each(data, function (i, s) {
+                    if (s.isActive) {
+                        html += '<div class="form-check"><input class="form-check-input svc-check" type="checkbox" value="' + s.id + '" data-price="' + s.price + '" id="svc' + s.id + '" />';
+                        html += '<label class="form-check-label" for="svc' + s.id + '">' + s.name + ' (' + s.price + ' TL/Gun)</label></div>';
+                    }
+                });
+                if (!html) html = '<small class="text-muted">Ek hizmet bulunmamaktadir.</small>';
+                $("#additionalServicesList").html(html);
+                calcTotal();
+            }
+        });
+    });
+
+    function addDays(dateString, days) {
+        var d = new Date(dateString);
+        d.setDate(d.getDate() + days);
+        return d.toISOString().split('T')[0];
+    }
+
+    function validateDateRange() {
+        var startValue = $("#startDate").val();
+        var endValue = $("#endDate").val();
+        if (!startValue || !endValue) return false;
+
+        var start = new Date(startValue);
+        var end = new Date(endValue);
+        if (end <= start) {
+            showAlert("Bitis tarihi baslangic tarihinden sonra olmali.", "warning");
+            return false;
+        }
+
+        return true;
+    }
+
+    function calcTotal() {
+        var s = new Date($("#startDate").val()), e = new Date($("#endDate").val());
+        if (s && e && e > s) {
+            var days = Math.ceil((e - s) / (1000 * 60 * 60 * 24));
+            var svcTotal = 0;
+            $(".svc-check:checked").each(function () { svcTotal += parseFloat($(this).data("price")); });
+            var total = (dailyPrice + svcTotal) * days;
+            $("#estimatedTotal").text(total + " TL");
+            $("#estimatedDeposit").text((dailyPrice * 3) + " TL");
+        } else {
+            $("#estimatedTotal").text("0 TL");
+            $("#estimatedDeposit").text("0 TL");
+        }
+    }
+
+    $("#startDate").change(function () {
+        var startValue = $(this).val();
+        if (!startValue) return;
+
+        var minEnd = addDays(startValue, 1);
+        $("#endDate").attr("min", minEnd);
+        if (!$("#endDate").val() || $("#endDate").val() < minEnd) {
+            $("#endDate").val(minEnd);
+        }
+
+        calcTotal();
+    });
+
+    $("#endDate").change(calcTotal);
+    $(document).on("change", ".svc-check", calcTotal);
+
+    $("#paymentMethod").change(toggleCardFields);
+
+    function toggleCardFields() {
+        var method = $("#paymentMethod").val();
+        if (method === "Kredi Karti") {
+            $("#cardFields").show();
+        } else {
+            $("#cardFields").hide();
+        }
+    }
+
+    function validatePaymentInputs() {
+        if ($("#paymentMethod").val() !== "Kredi Karti") return true;
+
+        var holder = $("#cardHolder").val().trim();
+        var number = $("#cardNumber").val().trim();
+        var expiry = $("#cardExpiry").val().trim();
+        var cvv = $("#cardCvv").val().trim();
+
+        if (!holder || !/^\d{16}$/.test(number) || !/^(0[1-9]|1[0-2])\/[0-9]{2}$/.test(expiry) || !/^\d{3}$/.test(cvv)) {
+            showAlert("Kredi karti simulasyonu icin kart bilgilerini gecerli formatta doldurun.", "warning");
+            return false;
+        }
+
+        return true;
+    }
+
+    function simulateAndCreatePayment(reservationId, amount) {
+        return $.ajax({
+            url: apiBaseUrl + "/Payments",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({
+                amount: amount,
+                paymentMethod: $("#paymentMethod").val(),
+                reservationId: reservationId
+            })
+        });
+    }
+
+    $("#reservationForm").submit(function (e) {
+        e.preventDefault();
+        if (reservationInProgress) return;
+
+        if (!validateDateRange()) return;
+        if (!validatePaymentInputs()) return;
+
+        reservationInProgress = true;
+        var submitButton = $("#reservationForm button[type='submit']");
+        submitButton.prop("disabled", true).text("Isleniyor...");
+
+        var selectedSvcs = [];
+        $(".svc-check:checked").each(function () { selectedSvcs.push(parseInt($(this).val())); });
+
+        $.ajax({
+            url: apiBaseUrl + "/Reservations",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({
+                startDate: $("#startDate").val(),
+                endDate: $("#endDate").val(),
+                notes: $("#notes").val(),
+                vehicleId: vehicleId,
+                pickupLocation: $("#pickupLocation").val(),
+                dropoffLocation: $("#dropoffLocation").val(),
+                additionalServiceIds: selectedSvcs
+            }),
+            success: function (res) {
+                simulateAndCreatePayment(res.id, parseFloat(res.totalPrice))
+                    .done(function () {
+                        showAlert("Rezervasyon ve odeme basarili! Toplam: " + res.totalPrice + " TL, Depozito: " + res.depositAmount + " TL", "success");
+                        $("#reservationForm")[0].reset();
+                        var today = new Date().toISOString().split('T')[0];
+                        var tomorrow = addDays(today, 1);
+                        $("#startDate").val(today).attr("min", today);
+                        $("#endDate").val(tomorrow).attr("min", tomorrow);
+                        $("#paymentMethod").val("Kredi Karti");
+                        toggleCardFields();
+                        calcTotal();
+                    })
+                    .fail(function (xhr) {
+                        var msg = "Rezervasyon olustu ama odeme basarisiz. Rezervasyon beklemede kaldi.";
+                        if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
+                        showAlert(msg, "warning");
+                    })
+                    .always(function () {
+                        reservationInProgress = false;
+                        submitButton.prop("disabled", false).text("Rezervasyon Yap");
+                    });
+            },
+            error: function (xhr) {
+                var msg = "Rezervasyon olusturulamadi.";
+                if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
+                showAlert(msg, "danger");
+                reservationInProgress = false;
+                submitButton.prop("disabled", false).text("Rezervasyon Yap");
+            }
+        });
+    });
+</script>
+}

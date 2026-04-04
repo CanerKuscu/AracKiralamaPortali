@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace AracKiralamaPortali.API.Models
 {
@@ -25,6 +26,7 @@ namespace AracKiralamaPortali.API.Models
         public string Status { get; set; } = "Planned";
 
         public int VehicleId { get; set; }
+        [JsonIgnore]
         public Vehicle Vehicle { get; set; } = null!;
     }
 }

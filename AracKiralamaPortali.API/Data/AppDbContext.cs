@@ -17,6 +17,8 @@ namespace AracKiralamaPortali.API.Data
         public DbSet<AdditionalService> AdditionalServices { get; set; }
         public DbSet<ReservationService> ReservationServices { get; set; }
         public DbSet<Maintenance> Maintenances { get; set; }
+        public DbSet<Review> Reviews { get; set; }
+        public DbSet<VehicleImage> VehicleImages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -27,6 +29,12 @@ namespace AracKiralamaPortali.API.Data
                 .WithMany(b => b.Vehicles)
                 .HasForeignKey(v => v.BrandId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<Vehicle>()
+                .HasOne(v => v.Owner)
+                .WithMany(u => u.Vehicles)
+                .HasForeignKey(v => v.OwnerId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             builder.Entity<Reservation>()
                 .HasOne(r => r.AppUser)
@@ -62,6 +70,30 @@ namespace AracKiralamaPortali.API.Data
                 .HasOne(m => m.Vehicle)
                 .WithMany(v => v.Maintenances)
                 .HasForeignKey(m => m.VehicleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<Review>()
+                .HasOne(r => r.Vehicle)
+                .WithMany(v => v.Reviews)
+                .HasForeignKey(r => r.VehicleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<Review>()
+                .HasOne(r => r.AppUser)
+                .WithMany(u => u.Reviews)
+                .HasForeignKey(r => r.AppUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<Review>()
+                .HasOne(r => r.Reservation)
+                .WithMany()
+                .HasForeignKey(r => r.ReservationId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            builder.Entity<VehicleImage>()
+                .HasOne(vi => vi.Vehicle)
+                .WithMany(v => v.Images)
+                .HasForeignKey(vi => vi.VehicleId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

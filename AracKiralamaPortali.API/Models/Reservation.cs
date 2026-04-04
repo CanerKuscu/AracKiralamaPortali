@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace AracKiralamaPortali.API.Models
 {
@@ -31,12 +32,16 @@ namespace AracKiralamaPortali.API.Models
         public string? Notes { get; set; }
 
         public string AppUserId { get; set; } = null!;
+        [JsonIgnore]
         public AppUser AppUser { get; set; } = null!;
 
         public int VehicleId { get; set; }
+        [JsonIgnore]
         public Vehicle Vehicle { get; set; } = null!;
 
+        [JsonIgnore]
         public Payment? Payment { get; set; }
+        [JsonIgnore]
         public ICollection<ReservationService> ReservationServices { get; set; } = new List<ReservationService>();
     }
 }

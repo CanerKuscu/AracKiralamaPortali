@@ -80,6 +80,8 @@
                     html += "<td>";
                     if (r.status === "Pending") {
                         html += '<button class="btn btn-sm btn-success me-1" onclick="openPayment(' + r.id + ',' + r.totalPrice + ')"><i class="fas fa-credit-card"></i></button>';
+                    }
+                    if (r.status === "Pending" || r.status === "Confirmed") {
                         html += '<button class="btn btn-sm btn-danger" onclick="cancelReservation(' + r.id + ')"><i class="fas fa-times"></i></button>';
                     }
                     html += "</td></tr>";
