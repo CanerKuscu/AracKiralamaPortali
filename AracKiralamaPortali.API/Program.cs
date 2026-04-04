@@ -1,6 +1,6 @@
 using System.Globalization;
-using System.Text;
 using System.Globalization;
+using System.Text;
 using AracKiralamaPortali.API.Data;
 using AracKiralamaPortali.API.Models;
 using AracKiralamaPortali.API.Repositories;
@@ -168,7 +168,7 @@ using (var scope = app.Services.CreateScope())
     var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
     var userManager = services.GetRequiredService<UserManager<AppUser>>();
 
-    string[] roles = { "Admin", "Employee", "User", "CarOwner" };
+    string[] roles = ["Admin", "Employee", "User", "CarOwner"];
     foreach (var role in roles)
     {
         if (!await roleManager.RoleExistsAsync(role))
