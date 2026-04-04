@@ -1,6 +1,6 @@
-using System.Text;
 using System.Globalization;
 using System.Text;
+using System.Globalization;
 using AracKiralamaPortali.API.Data;
 using AracKiralamaPortali.API.Models;
 using AracKiralamaPortali.API.Repositories;
