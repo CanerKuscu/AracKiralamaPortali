@@ -89,6 +89,8 @@ namespace AracKiralamaPortali.API.Controllers
             if (!vehicle.IsActive)
                 return BadRequest(new { message = "Araç þu anda kiralamaya uygun deðil." });
             if (!string.IsNullOrEmpty(vehicle.OwnerId) && vehicle.OwnerId == userId)
+            if (!string.IsNullOrEmpty(vehicle.OwnerId) &&
+                string.Equals(vehicle.OwnerId, userId, StringComparison.OrdinalIgnoreCase))
                 return BadRequest(new { message = "Kendi aracýnýz için rezervasyon yapamazsýnýz." });
 
             // Þu an kirada olan rezervasyonu kontrol et

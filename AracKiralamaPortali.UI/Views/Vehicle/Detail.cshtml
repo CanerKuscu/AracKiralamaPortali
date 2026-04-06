@@ -184,11 +184,17 @@
                 $("#vStatus").html('<span class="badge bg-' + (statusColor[v.vehicleStatus] || "secondary") + '">' + (statusMap[v.vehicleStatus] || v.vehicleStatus) + '</span>');
 
                 if (v.vehicleStatus === "Available") {
-                    $("#reservationAction").show();
-                    if (isLoggedIn()) {
-                        $("#reservationButton").attr("href", "/Reservation/Create?vehicleId=" + vehicleId);
-                    } else {
-                        $("#reservationButton").attr("href", "/Auth/Login");
+                    var currentUser = getUserInfo();
+                    var isOwner = currentUser && v.ownerId &&
+                        currentUser.id && currentUser.id.toLowerCase() === v.ownerId.toLowerCase();
+
+                    if (!isOwner) {
+                        $("#reservationAction").show();
+                        if (isLoggedIn()) {
+                            $("#reservationButton").attr("href", "/Reservation/Create?vehicleId=" + vehicleId);
+                        } else {
+                            $("#reservationButton").attr("href", "/Auth/Login");
+                        }
                     }
                 }
 

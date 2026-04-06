@@ -106,6 +106,18 @@
             url: apiBaseUrl + "/Vehicles/" + vehicleId,
             type: "GET",
             success: function (v) {
+                var currentUser = getUserInfo();
+                var isOwner = currentUser && v.ownerId &&
+                    currentUser.id && currentUser.id.toLowerCase() === v.ownerId.toLowerCase();
+
+                if (isOwner) {
+                    showAlert("Kendi araciniz icin rezervasyon yapamazsiniz.", "warning");
+                    setTimeout(function () {
+                        window.location.href = "/Vehicle/Detail/" + vehicleId;
+                    }, 1500);
+                    return;
+                }
+
                 dailyPrice = v.dailyPrice;
                 var imageUrl = resolveApiFileUrl((v.imageUrls && v.imageUrls.length > 0 ? v.imageUrls[0] : v.imageUrl));
                 var html = '<div class="card shadow">';
