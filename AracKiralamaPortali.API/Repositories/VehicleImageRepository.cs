@@ -3,6 +3,8 @@ using AracKiralamaPortali.API.Models;
 
 namespace AracKiralamaPortali.API.Repositories
 {
+    // Araç görselleri için gereken CRUD imzalarý.
+    // Uygulamalar `RepositoryBase<VehicleImage>` üzerinden saðlanýr.
     public interface IVehicleImageRepository
     {
         Task<VehicleImage?> GetByIdAsync(int id);
@@ -12,5 +14,6 @@ namespace AracKiralamaPortali.API.Repositories
         IQueryable<VehicleImage> GetQueryable();
     }
 
+    // Metot gövdeleri `RepositoryBase` içinde olduðundan burada tekrar yazýlmadý.
     public class VehicleImageRepository(AppDbContext context) : RepositoryBase<VehicleImage>(context), IVehicleImageRepository;
 }

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using AracKiralamaPortali.API.DTOs;
 using AracKiralamaPortali.API.Models;
 using AracKiralamaPortali.API.Repositories;
+using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,31 +11,13 @@ namespace AracKiralamaPortali.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class VehiclesController(IVehicleRepository vehicleRepository, IBrandRepository brandRepository) : ControllerBase
+    public class VehiclesController(IVehicleRepository vehicleRepository, IBrandRepository brandRepository, IMapper mapper) : ControllerBase
     {
         private IQueryable<Vehicle> GetPublicVehicleQuery()
         {
             return vehicleRepository.GetQueryable()
                 .Where(v => v.OwnerId == null || (v.Owner != null && !v.Owner.IsDeleted && v.Owner.IsActive));
         }
-
-        private VehicleDto MapToDto(Vehicle v) => new()
-        {
-            Id = v.Id, Model = v.Model, Plate = v.Plate, Year = v.Year, Color = v.Color,
-            DailyPrice = v.DailyPrice, WeeklyPrice = v.WeeklyPrice, MonthlyPrice = v.MonthlyPrice,
-            Description = v.Description, ImageUrl = v.ImageUrl, VehicleStatus = v.VehicleStatus,
-            IsActive = v.IsActive, CreatedAt = v.CreatedAt, FuelType = v.FuelType,
-            TransmissionType = v.TransmissionType, Mileage = v.Mileage,
-            PassengerCapacity = v.PassengerCapacity, LuggageCapacity = v.LuggageCapacity,
-            BrandId = v.BrandId, BrandName = v.Brand.Name,
-            InsuranceExpiryDate = v.InsuranceExpiryDate,
-            InspectionExpiryDate = v.InspectionExpiryDate,
-            HasAccidentHistory = v.HasAccidentHistory,
-            AverageRating = v.Reviews.Count > 0 ? v.Reviews.Average(r => r.Rating) : 0,
-            ReviewCount = v.Reviews.Count,
-            ImageUrls = [.. v.Images.OrderBy(i => i.DisplayOrder).Select(i => i.ImageUrl)],
-            OwnerId = v.OwnerId
-        };
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
@@ -45,7 +28,7 @@ namespace AracKiralamaPortali.API.Controllers
                 .ToListAsync();
             
             var dtos = vehicles.Select(v => {
-                var dto = MapToDto(v);
+                var dto = mapper.Map<VehicleDto>(v);
                 
                 // Eðer þu anda kirada ise durumu güncelle
                 var currentRental = v.Reservations.FirstOrDefault(r =>
@@ -71,7 +54,7 @@ namespace AracKiralamaPortali.API.Controllers
                 .FirstOrDefaultAsync(v => v.Id == id);
             if (vehicle == null) return NotFound();
             
-            var dto = MapToDto(vehicle);
+            var dto = mapper.Map<VehicleDto>(vehicle);
             
             // Eðer þu anda kirada ise durumu güncelle
             var currentRental = vehicle.Reservations.FirstOrDefault(r =>
@@ -99,7 +82,13 @@ namespace AracKiralamaPortali.API.Controllers
                     r.StartDate <= DateTime.Now && r.EndDate >= DateTime.Now))
                 .ToList();
             
-            return Ok(availableVehicles.Select(MapToDto));
+            return Ok(availableVehicles.Select(v => {
+                var dto = mapper.Map<VehicleDto>(v);
+                var currentRental = v.Reservations.FirstOrDefault(r =>
+                    r.Status == "Confirmed" && r.StartDate <= DateTime.Now && r.EndDate >= DateTime.Now);
+                if (currentRental != null) dto.VehicleStatus = "Rented";
+                return dto;
+            }));
         }
 
         [HttpGet("brand/{brandId}")]
@@ -111,7 +100,7 @@ namespace AracKiralamaPortali.API.Controllers
                 .Where(v => v.BrandId == brandId).ToListAsync();
             
             var dtos = vehicles.Select(v => {
-                var dto = MapToDto(v);
+                var dto = mapper.Map<VehicleDto>(v);
                 
                 // Eðer þu anda kirada ise durumu güncelle
                 var currentRental = v.Reservations.FirstOrDefault(r =>
@@ -153,7 +142,13 @@ namespace AracKiralamaPortali.API.Controllers
                     r.StartDate <= DateTime.Now && r.EndDate >= DateTime.Now))
                 .ToList();
 
-            return Ok(availableVehicles.Select(MapToDto));
+            return Ok(availableVehicles.Select(v => {
+                var dto = mapper.Map<VehicleDto>(v);
+                var currentRental = v.Reservations.FirstOrDefault(r =>
+                    r.Status == "Confirmed" && r.StartDate <= DateTime.Now && r.EndDate >= DateTime.Now);
+                if (currentRental != null) dto.VehicleStatus = "Rented";
+                return dto;
+            }));
         }
 
         [Authorize]
@@ -182,19 +177,9 @@ namespace AracKiralamaPortali.API.Controllers
                 }
             }
 
-            var vehicle = new Vehicle
-            {
-                Model = dto.Model, Plate = dto.Plate, Year = dto.Year, Color = dto.Color,
-                DailyPrice = dto.DailyPrice, WeeklyPrice = dto.WeeklyPrice, MonthlyPrice = dto.MonthlyPrice,
-                Description = dto.Description, ImageUrl = dto.ImageUrl, FuelType = dto.FuelType,
-                TransmissionType = dto.TransmissionType, Mileage = dto.Mileage,
-                PassengerCapacity = dto.PassengerCapacity, LuggageCapacity = dto.LuggageCapacity,
-                BrandId = resolvedBrandId,
-                InsuranceExpiryDate = dto.InsuranceExpiryDate,
-                InspectionExpiryDate = dto.InspectionExpiryDate,
-                HasAccidentHistory = dto.HasAccidentHistory,
-                OwnerId = userId
-            };
+            var vehicle = mapper.Map<Vehicle>(dto);
+            vehicle.BrandId = resolvedBrandId;
+            vehicle.OwnerId = userId;
             await vehicleRepository.AddAsync(vehicle);
             await vehicleRepository.SaveChangesAsync();
             return CreatedAtAction(nameof(GetById), new { id = vehicle.Id }, new { id = vehicle.Id, message = "Araç baþarýyla oluþturuldu." });
@@ -233,16 +218,8 @@ namespace AracKiralamaPortali.API.Controllers
                 }
             }
 
-            vehicle.Model = dto.Model; vehicle.Plate = dto.Plate; vehicle.Year = dto.Year; vehicle.Color = dto.Color;
-            vehicle.DailyPrice = dto.DailyPrice; vehicle.WeeklyPrice = dto.WeeklyPrice; vehicle.MonthlyPrice = dto.MonthlyPrice;
-            vehicle.Description = dto.Description; vehicle.ImageUrl = dto.ImageUrl;
-            vehicle.VehicleStatus = dto.VehicleStatus; vehicle.IsActive = dto.IsActive;
-            vehicle.FuelType = dto.FuelType; vehicle.TransmissionType = dto.TransmissionType;
-            vehicle.Mileage = dto.Mileage; vehicle.PassengerCapacity = dto.PassengerCapacity;
-            vehicle.LuggageCapacity = dto.LuggageCapacity; vehicle.BrandId = resolvedBrandId;
-            vehicle.InsuranceExpiryDate = dto.InsuranceExpiryDate;
-            vehicle.InspectionExpiryDate = dto.InspectionExpiryDate;
-            vehicle.HasAccidentHistory = dto.HasAccidentHistory;
+            mapper.Map(dto, vehicle);
+            vehicle.BrandId = resolvedBrandId;
 
             vehicleRepository.Update(vehicle);
             await vehicleRepository.SaveChangesAsync();

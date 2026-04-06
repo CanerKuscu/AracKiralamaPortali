@@ -4,6 +4,7 @@ using AracKiralamaPortali.API.Data;
 using AracKiralamaPortali.API.Models;
 using AracKiralamaPortali.API.Repositories;
 using AracKiralamaPortali.API.Localization;
+using AracKiralamaPortali.API.Mappings;
 using AracKiralamaPortali.API.Services;
 using AracKiralamaPortali.API.Filters;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -61,6 +62,8 @@ builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
 builder.Services.AddScoped<IVehicleRepository, VehicleRepository>();
 builder.Services.AddScoped<IVehicleImageRepository, VehicleImageRepository>();
 builder.Services.AddScoped<IPasswordHasherService>(sp => new PasswordHasherService(workFactor: 12));
+
+builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
 
 builder.Services.AddLocalization();
 builder.Services.AddControllers(options =>
@@ -246,4 +249,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+
+
 
