@@ -42,7 +42,7 @@
 <div class="table-responsive">
     <table class="table table-striped table-hover">
         <thead class="table-dark">
-            <tr><th>Plaka</th><th>Marka</th><th>Model</th><th>Durum</th><th>Suanki Kullanan</th><th>Teslim Tarihi</th></tr>
+            <tr><th>Plaka</th><th>Marka</th><th>Model</th><th>Durum</th><th>Suanki Kullanan</th><th>Teslim Tarihi</th><th>Konum</th><th>Harita</th></tr>
         </thead>
         <tbody id="fleetList"></tbody>
     </table>
@@ -53,6 +53,7 @@
     $(document).ready(function () {
         if (!isAdmin()) { window.location.href = "/"; return; }
         loadFleet();
+        setInterval(loadFleet, 30000);
     });
 
     var statusMap = {"Available":"Musait","Rented":"Kirada","Maintenance":"Bakimda","Damaged":"Hasarli"};
@@ -69,7 +70,9 @@
                     html += "<tr><td>" + v.plate + "</td><td>" + v.brandName + "</td><td>" + v.model + "</td>";
                     html += '<td><span class="badge bg-' + (statusColor[v.vehicleStatus]||"secondary") + '">' + (statusMap[v.vehicleStatus]||v.vehicleStatus) + '</span></td>';
                     html += "<td>" + (v.currentUser || "-") + "</td>";
-                    html += "<td>" + (v.returnDate ? new Date(v.returnDate).toLocaleDateString("tr-TR") : "-") + "</td></tr>";
+                    html += "<td>" + (v.returnDate ? new Date(v.returnDate).toLocaleDateString("tr-TR") : "-") + "</td>";
+                    html += "<td>" + formatLocation(v) + "</td>";
+                    html += "<td>" + buildMapLink(v) + "</td></tr>";
                 });
                 $("#fleetList").html(html);
                 $("#countAvailable").text(counts.Available || 0);
@@ -78,6 +81,19 @@
                 $("#countDamaged").text(counts.Damaged || 0);
             }
         });
+    }
+
+    function formatLocation(v) {
+        if (!v.currentLocation && (v.currentLatitude == null || v.currentLongitude == null)) return "-";
+        var locationText = v.currentLocation || ("Lat: " + Number(v.currentLatitude).toFixed(6) + ", Lng: " + Number(v.currentLongitude).toFixed(6));
+        var updated = v.locationUpdatedAt ? ('<br/><small class="text-muted">Guncelleme: ' + new Date(v.locationUpdatedAt).toLocaleString("tr-TR") + "</small>") : "";
+        return locationText + updated;
+    }
+
+    function buildMapLink(v) {
+        if (v.currentLatitude == null || v.currentLongitude == null) return "-";
+        var mapUrl = "https://www.google.com/maps?q=" + v.currentLatitude + "," + v.currentLongitude;
+        return '<a href="' + mapUrl + '" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fas fa-map"></i> Ac</a>';
     }
 </script>
 }

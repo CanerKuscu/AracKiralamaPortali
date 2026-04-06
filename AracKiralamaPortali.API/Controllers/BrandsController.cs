@@ -3,24 +3,19 @@ using AracKiralamaPortali.API.Models;
 using AracKiralamaPortali.API.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace AracKiralamaPortali.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class BrandsController : ControllerBase
+    public class BrandsController(IBrandRepository brandRepository, IVehicleRepository vehicleRepository) : ControllerBase
     {
-        private readonly IRepository<Brand> _brandRepository;
-
-        public BrandsController(IRepository<Brand> brandRepository)
-        {
-            _brandRepository = brandRepository;
-        }
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var brands = await _brandRepository.GetAllAsync();
+            var brands = await brandRepository.GetAllAsync();
             var dtos = brands.Select(b => new BrandDto
             {
                 Id = b.Id,
@@ -34,7 +29,7 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var brand = await _brandRepository.GetByIdAsync(id);
+            var brand = await brandRepository.GetByIdAsync(id);
             if (brand == null)
                 return NotFound();
 
@@ -57,8 +52,8 @@ namespace AracKiralamaPortali.API.Controllers
                 Name = dto.Name
             };
 
-            await _brandRepository.AddAsync(brand);
-            await _brandRepository.SaveChangesAsync();
+            await brandRepository.AddAsync(brand);
+            await brandRepository.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetById), new { id = brand.Id }, new BrandDto
             {
@@ -73,15 +68,15 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] BrandUpdateDto dto)
         {
-            var brand = await _brandRepository.GetByIdAsync(id);
+            var brand = await brandRepository.GetByIdAsync(id);
             if (brand == null)
                 return NotFound();
 
             brand.Name = dto.Name;
             brand.IsActive = dto.IsActive;
 
-            _brandRepository.Update(brand);
-            await _brandRepository.SaveChangesAsync();
+            brandRepository.Update(brand);
+            await brandRepository.SaveChangesAsync();
 
             return Ok(new BrandDto
             {
@@ -96,12 +91,16 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var brand = await _brandRepository.GetByIdAsync(id);
+            var brand = await brandRepository.GetByIdAsync(id);
             if (brand == null)
                 return NotFound();
 
-            _brandRepository.Delete(brand);
-            await _brandRepository.SaveChangesAsync();
+            var hasVehicles = await vehicleRepository.GetQueryable().AnyAsync(v => v.BrandId == id);
+            if (hasVehicles)
+                return BadRequest(new { message = "Bu markaya baðlý araçlar olduðu için silinemez." });
+
+            brandRepository.Delete(brand);
+            await brandRepository.SaveChangesAsync();
 
             return Ok(new { message = "Brand deleted successfully." });
         }

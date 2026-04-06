@@ -12,7 +12,7 @@ namespace AracKiralamaPortali.API.DTOs
         public string Email { get; set; } = null!;
 
         [Required(ErrorMessage = "Kullanýcý adý alaný zorunludur.")]
-        [RegularExpression(@"^[a-zA-Z0-9_]{3,20}$",
+        [RegularExpression(@"^[a-zA-Z0-9_çÇðÐýÝöÖþÞüÜ]{3,20}$",
             ErrorMessage = "Kullanýcý adý 3-20 karakter olmalý ve yalnýzca harf, rakam veya alt çizgi içermelidir.")]
         public string UserName { get; set; } = null!;
 
@@ -22,6 +22,7 @@ namespace AracKiralamaPortali.API.DTOs
 
         public string? PhoneNumber { get; set; }
         public string? TCKimlik { get; set; }
+        public DateTime? BirthDate { get; set; }
         public string? Address { get; set; }
         public string? LicenseClass { get; set; }
         public DateTime? LicenseIssueDate { get; set; }
@@ -46,6 +47,7 @@ namespace AracKiralamaPortali.API.DTOs
         public string UserName { get; set; } = null!;
         public string? PhoneNumber { get; set; }
         public string? TCKimlik { get; set; }
+        public DateTime? BirthDate { get; set; }
         public string? Address { get; set; }
         public string? LicenseClass { get; set; }
         public DateTime? LicenseIssueDate { get; set; }
@@ -67,6 +69,7 @@ namespace AracKiralamaPortali.API.DTOs
 
         public string? PhoneNumber { get; set; }
         public string? TCKimlik { get; set; }
+        public DateTime? BirthDate { get; set; }
         public string? Address { get; set; }
         public string? LicenseClass { get; set; }
         public DateTime? LicenseIssueDate { get; set; }

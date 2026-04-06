@@ -32,6 +32,10 @@
                             <input type="text" class="form-control" id="tcKimlik" maxlength="11" />
                         </div>
                         <div class="col-md-6 mb-3">
+                            <label class="form-label">Dogum Tarihi</label>
+                            <input type="date" class="form-control" id="birthDate" max="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                        </div>
+                        <div class="col-md-6 mb-3">
                             <label class="form-label">Ehliyet Sinifi</label>
                             <select class="form-select" id="licenseClass">
                                 <option value="">Seciniz</option>
@@ -43,7 +47,7 @@
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Ehliyet Verilis Tarihi</label>
-                            <input type="date" class="form-control" id="licenseIssueDate" />
+                            <input type="date" class="form-control" id="licenseIssueDate" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Kayýt Türü</label>
@@ -73,8 +77,47 @@
 
 @section Scripts {
 <script>
+    function validateRegisterForm() {
+        var form = document.getElementById("registerForm");
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return false;
+        }
+
+        var licenseIssueDate = $("#licenseIssueDate").val();
+        if (licenseIssueDate) {
+            var selectedDate = new Date(licenseIssueDate + "T00:00:00");
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (selectedDate > today) {
+                showAlert("Ehliyet verilis tarihi bugunden ileri bir tarih olamaz.", "danger");
+                return false;
+            }
+        }
+
+        var birthDate = $("#birthDate").val();
+        if (birthDate) {
+            var selectedBirthDate = new Date(birthDate + "T00:00:00");
+            var todayForBirthDate = new Date();
+            todayForBirthDate.setHours(0, 0, 0, 0);
+
+            if (selectedBirthDate > todayForBirthDate) {
+                showAlert("Dogum tarihi bugunden ileri bir tarih olamaz.", "danger");
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     $("#registerForm").submit(function (e) {
         e.preventDefault();
+
+        if (!validateRegisterForm()) {
+            return;
+        }
+
         $.ajax({
             url: apiBaseUrl + "/Auth/register",
             type: "POST",
@@ -86,6 +129,7 @@
                 phoneNumber: $("#phoneNumber").val(),
                 password: $("#password").val(),
                 tcKimlik: $("#tcKimlik").val(),
+                birthDate: $("#birthDate").val() || null,
                 address: $("#address").val(),
                 licenseClass: $("#licenseClass").val() || null,
                 licenseIssueDate: $("#licenseIssueDate").val() || null,
@@ -97,8 +141,29 @@
             },
             error: function (xhr) {
                 var msg = "Kayýt baþarýsýz.";
-                if (xhr.responseJSON && Array.isArray(xhr.responseJSON))
-                    msg = xhr.responseJSON.map(function (e) { return e.description; }).join("<br/>");
+                var data = xhr.responseJSON;
+
+                if (data) {
+                    if (Array.isArray(data)) {
+                        msg = data
+                            .map(function (e) { return e.description || e.code || e; })
+                            .join("<br/>");
+                    } else if (data.message) {
+                        msg = data.message;
+                    } else if (data.title) {
+                        msg = data.title;
+                    }
+
+                    if (data.errors) {
+                        var validationMessages = Object.keys(data.errors)
+                            .flatMap(function (k) { return data.errors[k]; });
+                        if (validationMessages.length > 0)
+                            msg = validationMessages.join("<br/>");
+                    }
+                } else if (xhr.responseText) {
+                    msg = xhr.responseText;
+                }
+
                 showAlert(msg, "danger");
             }
         });

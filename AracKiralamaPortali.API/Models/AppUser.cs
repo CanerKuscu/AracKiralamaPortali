@@ -12,6 +12,8 @@ namespace AracKiralamaPortali.API.Models
         [MaxLength(11)]
         public string? TCKimlik { get; set; }
 
+        public DateTime? BirthDate { get; set; }
+
         [MaxLength(500)]
         public string? Address { get; set; }
 

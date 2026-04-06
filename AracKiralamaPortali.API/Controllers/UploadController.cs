@@ -10,20 +10,11 @@ namespace AracKiralamaPortali.API.Controllers
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
-    public class UploadController : ControllerBase
+    public class UploadController(
+        IVehicleImageRepository vehicleImageRepository,
+        IVehicleRepository vehicleRepository,
+        IWebHostEnvironment hostEnvironment) : ControllerBase
     {
-        private readonly IRepository<VehicleImage> _vehicleImageRepository;
-        private readonly IRepository<Vehicle> _vehicleRepository;
-        private readonly IWebHostEnvironment _hostEnvironment;
-
-        public UploadController(IRepository<VehicleImage> vehicleImageRepository,
-            IRepository<Vehicle> vehicleRepository,
-            IWebHostEnvironment hostEnvironment)
-        {
-            _vehicleImageRepository = vehicleImageRepository;
-            _vehicleRepository = vehicleRepository;
-            _hostEnvironment = hostEnvironment;
-        }
 
         [HttpPost("vehicle-image")]
         public async Task<IActionResult> UploadVehicleImage(IFormFile file, [FromForm] int vehicleId)
@@ -44,12 +35,12 @@ namespace AracKiralamaPortali.API.Controllers
             try
             {
                 // Verify vehicle exists
-                var vehicle = await _vehicleRepository.GetByIdAsync(vehicleId);
+                var vehicle = await vehicleRepository.GetByIdAsync(vehicleId);
                 if (vehicle == null)
                     return NotFound(new { message = "Araç bulunamadý." });
 
                 // Create upload directory if it doesn't exist
-                var webRootPath = _hostEnvironment.WebRootPath ?? Path.Combine(_hostEnvironment.ContentRootPath, "wwwroot");
+                var webRootPath = hostEnvironment.WebRootPath ?? Path.Combine(hostEnvironment.ContentRootPath, "wwwroot");
                 var uploadsFolder = Path.Combine(webRootPath, "uploads", "vehicles");
                 if (!Directory.Exists(uploadsFolder))
                     Directory.CreateDirectory(uploadsFolder);
@@ -66,7 +57,7 @@ namespace AracKiralamaPortali.API.Controllers
 
                 // Get the maximum display order for this vehicle
                 // Do not rely on vehicle.Images navigation, because GetByIdAsync does not include related entities.
-                var maxDisplayOrder = await _vehicleImageRepository.GetQueryable()
+                var maxDisplayOrder = await vehicleImageRepository.GetQueryable()
                     .Where(i => i.VehicleId == vehicleId)
                     .Select(i => (int?)i.DisplayOrder)
                     .MaxAsync();
@@ -81,8 +72,8 @@ namespace AracKiralamaPortali.API.Controllers
                     DisplayOrder = displayOrder
                 };
 
-                await _vehicleImageRepository.AddAsync(vehicleImage);
-                await _vehicleImageRepository.SaveChangesAsync();
+                await vehicleImageRepository.AddAsync(vehicleImage);
+                await vehicleImageRepository.SaveChangesAsync();
 
                 return Ok(new VehicleImageDto
                 {

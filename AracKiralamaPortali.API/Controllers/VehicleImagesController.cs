@@ -9,19 +9,13 @@ namespace AracKiralamaPortali.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class VehicleImagesController : ControllerBase
+    public class VehicleImagesController(IVehicleImageRepository repository) : ControllerBase
     {
-        private readonly IRepository<VehicleImage> _repository;
-
-        public VehicleImagesController(IRepository<VehicleImage> repository)
-        {
-            _repository = repository;
-        }
 
         [HttpGet("vehicle/{vehicleId}")]
         public async Task<IActionResult> GetByVehicle(int vehicleId)
         {
-            var images = await _repository.GetQueryable()
+            var images = await repository.GetQueryable()
                 .Where(i => i.VehicleId == vehicleId)
                 .OrderBy(i => i.DisplayOrder)
                 .ToListAsync();
@@ -46,8 +40,8 @@ namespace AracKiralamaPortali.API.Controllers
                 VehicleId = dto.VehicleId
             };
 
-            await _repository.AddAsync(image);
-            await _repository.SaveChangesAsync();
+            await repository.AddAsync(image);
+            await repository.SaveChangesAsync();
 
             return Ok(new VehicleImageDto
             {
@@ -62,11 +56,11 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var image = await _repository.GetByIdAsync(id);
+            var image = await repository.GetByIdAsync(id);
             if (image == null) return NotFound();
 
-            _repository.Delete(image);
-            await _repository.SaveChangesAsync();
+            repository.Delete(image);
+            await repository.SaveChangesAsync();
             return Ok(new { message = "Görsel baþarýyla silindi." });
         }
     }

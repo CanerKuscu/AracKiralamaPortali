@@ -10,18 +10,15 @@ namespace AracKiralamaPortali.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class VehiclesController : ControllerBase
+    public class VehiclesController(IVehicleRepository vehicleRepository, IBrandRepository brandRepository) : ControllerBase
     {
-        private readonly IRepository<Vehicle> _vehicleRepository;
-        private readonly IRepository<Brand> _brandRepository;
-
-        public VehiclesController(IRepository<Vehicle> vehicleRepository, IRepository<Brand> brandRepository)
+        private IQueryable<Vehicle> GetPublicVehicleQuery()
         {
-            _vehicleRepository = vehicleRepository;
-            _brandRepository = brandRepository;
+            return vehicleRepository.GetQueryable()
+                .Where(v => v.OwnerId == null || (v.Owner != null && !v.Owner.IsDeleted && v.Owner.IsActive));
         }
 
-        private VehicleDto MapToDto(Vehicle v) => new VehicleDto
+        private VehicleDto MapToDto(Vehicle v) => new()
         {
             Id = v.Id, Model = v.Model, Plate = v.Plate, Year = v.Year, Color = v.Color,
             DailyPrice = v.DailyPrice, WeeklyPrice = v.WeeklyPrice, MonthlyPrice = v.MonthlyPrice,
@@ -35,14 +32,14 @@ namespace AracKiralamaPortali.API.Controllers
             HasAccidentHistory = v.HasAccidentHistory,
             AverageRating = v.Reviews.Count > 0 ? v.Reviews.Average(r => r.Rating) : 0,
             ReviewCount = v.Reviews.Count,
-            ImageUrls = v.Images.OrderBy(i => i.DisplayOrder).Select(i => i.ImageUrl).ToList(),
+            ImageUrls = [.. v.Images.OrderBy(i => i.DisplayOrder).Select(i => i.ImageUrl)],
             OwnerId = v.OwnerId
         };
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var vehicles = await _vehicleRepository.GetQueryable()
+            var vehicles = await GetPublicVehicleQuery()
                 .Include(v => v.Brand).Include(v => v.Reviews).Include(v => v.Images)
                 .Include(v => v.Reservations)
                 .ToListAsync();
@@ -68,7 +65,7 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var vehicle = await _vehicleRepository.GetQueryable()
+            var vehicle = await GetPublicVehicleQuery()
                 .Include(v => v.Brand).Include(v => v.Reviews).Include(v => v.Images)
                 .Include(v => v.Reservations)
                 .FirstOrDefaultAsync(v => v.Id == id);
@@ -91,7 +88,7 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpGet("available")]
         public async Task<IActionResult> GetAvailable()
         {
-            var vehicles = await _vehicleRepository.GetQueryable()
+            var vehicles = await GetPublicVehicleQuery()
                 .Include(v => v.Brand).Include(v => v.Reviews).Include(v => v.Images)
                 .Include(v => v.Reservations)
                 .ToListAsync();
@@ -108,7 +105,7 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpGet("brand/{brandId}")]
         public async Task<IActionResult> GetByBrand(int brandId)
         {
-            var vehicles = await _vehicleRepository.GetQueryable()
+            var vehicles = await GetPublicVehicleQuery()
                 .Include(v => v.Brand).Include(v => v.Reviews).Include(v => v.Images)
                 .Include(v => v.Reservations)
                 .Where(v => v.BrandId == brandId).ToListAsync();
@@ -136,7 +133,7 @@ namespace AracKiralamaPortali.API.Controllers
             [FromQuery] decimal? minPrice, [FromQuery] decimal? maxPrice, [FromQuery] int? brandId,
             [FromQuery] int? minPassenger)
         {
-            var query = _vehicleRepository.GetQueryable()
+            var query = GetPublicVehicleQuery()
                 .Include(v => v.Brand).Include(v => v.Reviews).Include(v => v.Images)
                 .Include(v => v.Reservations)
                 .Where(v => v.IsActive);
@@ -168,8 +165,9 @@ namespace AracKiralamaPortali.API.Controllers
             int resolvedBrandId = dto.BrandId;
             if (!string.IsNullOrWhiteSpace(dto.BrandName))
             {
-                var existingBrand = await _brandRepository.GetQueryable()
-                    .FirstOrDefaultAsync(b => b.Name.ToLower() == dto.BrandName.Trim().ToLower());
+                var brandName = dto.BrandName.Trim();
+                var existingBrand = await brandRepository.GetQueryable()
+                    .FirstOrDefaultAsync(b => b.Name == brandName);
                 
                 if (existingBrand != null)
                 {
@@ -178,8 +176,8 @@ namespace AracKiralamaPortali.API.Controllers
                 else
                 {
                     var newBrand = new Brand { Name = dto.BrandName.Trim(), IsActive = true };
-                    await _brandRepository.AddAsync(newBrand);
-                    await _brandRepository.SaveChangesAsync();
+                    await brandRepository.AddAsync(newBrand);
+                    await brandRepository.SaveChangesAsync();
                     resolvedBrandId = newBrand.Id;
                 }
             }
@@ -197,8 +195,8 @@ namespace AracKiralamaPortali.API.Controllers
                 HasAccidentHistory = dto.HasAccidentHistory,
                 OwnerId = userId
             };
-            await _vehicleRepository.AddAsync(vehicle);
-            await _vehicleRepository.SaveChangesAsync();
+            await vehicleRepository.AddAsync(vehicle);
+            await vehicleRepository.SaveChangesAsync();
             return CreatedAtAction(nameof(GetById), new { id = vehicle.Id }, new { id = vehicle.Id, message = "Araç baþarýyla oluþturuldu." });
         }
 
@@ -206,7 +204,7 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] VehicleUpdateDto dto)
         {
-            var vehicle = await _vehicleRepository.GetByIdAsync(id);
+            var vehicle = await vehicleRepository.GetByIdAsync(id);
             if (vehicle == null) return NotFound();
 
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -218,8 +216,9 @@ namespace AracKiralamaPortali.API.Controllers
             int resolvedBrandId = dto.BrandId;
             if (!string.IsNullOrWhiteSpace(dto.BrandName))
             {
-                var existingBrand = await _brandRepository.GetQueryable()
-                    .FirstOrDefaultAsync(b => b.Name.ToLower() == dto.BrandName.Trim().ToLower());
+                var brandName = dto.BrandName.Trim();
+                var existingBrand = await brandRepository.GetQueryable()
+                    .FirstOrDefaultAsync(b => b.Name == brandName);
                 
                 if (existingBrand != null)
                 {
@@ -228,8 +227,8 @@ namespace AracKiralamaPortali.API.Controllers
                 else
                 {
                     var newBrand = new Brand { Name = dto.BrandName.Trim(), IsActive = true };
-                    await _brandRepository.AddAsync(newBrand);
-                    await _brandRepository.SaveChangesAsync();
+                    await brandRepository.AddAsync(newBrand);
+                    await brandRepository.SaveChangesAsync();
                     resolvedBrandId = newBrand.Id;
                 }
             }
@@ -245,8 +244,8 @@ namespace AracKiralamaPortali.API.Controllers
             vehicle.InspectionExpiryDate = dto.InspectionExpiryDate;
             vehicle.HasAccidentHistory = dto.HasAccidentHistory;
 
-            _vehicleRepository.Update(vehicle);
-            await _vehicleRepository.SaveChangesAsync();
+            vehicleRepository.Update(vehicle);
+            await vehicleRepository.SaveChangesAsync();
             return Ok(new { message = "Araç baþarýyla güncellendi." });
         }
 
@@ -254,7 +253,7 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var vehicle = await _vehicleRepository.GetByIdAsync(id);
+            var vehicle = await vehicleRepository.GetByIdAsync(id);
             if (vehicle == null) return NotFound();
 
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -263,8 +262,8 @@ namespace AracKiralamaPortali.API.Controllers
             if (vehicle.OwnerId != userId && userRole != "Admin")
                 return Forbid();
 
-            _vehicleRepository.Delete(vehicle);
-            await _vehicleRepository.SaveChangesAsync();
+            vehicleRepository.Delete(vehicle);
+            await vehicleRepository.SaveChangesAsync();
             return Ok(new { message = "Araç baþarýyla silindi." });
         }
 
@@ -272,18 +271,30 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpGet("fleet")]
         public async Task<IActionResult> GetFleet()
         {
-            var vehicles = await _vehicleRepository.GetQueryable()
+            var vehicles = await vehicleRepository.GetQueryable()
+                .Where(v => v.IsActive)
+                .Where(v => v.OwnerId == null || (v.Owner != null && !v.Owner.IsDeleted && v.Owner.IsActive))
                 .Include(v => v.Brand)
+                .Include(v => v.Owner)
                 .Include(v => v.Reservations.Where(r => r.Status != "Cancelled"))
                     .ThenInclude(r => r.AppUser)
                 .ToListAsync();
+
+            vehicles = vehicles
+                .GroupBy(v => v.Plate.Trim().ToLower())
+                .Select(g => g.OrderByDescending(v => v.Id).First())
+                .ToList();
 
             var result = vehicles.Select(v => {
                 var activeRes = v.Reservations.FirstOrDefault(r => r.Status == "Confirmed" && r.StartDate <= DateTime.Now && r.EndDate >= DateTime.Now);
                 return new {
                     v.Id, v.Plate, v.Model, BrandName = v.Brand.Name, v.VehicleStatus,
-                    CurrentUser = activeRes != null ? activeRes.AppUser.FullName : null,
-                    ReturnDate = activeRes != null ? (DateTime?)activeRes.EndDate : null
+                    CurrentUser = activeRes?.AppUser.FullName,
+                    ReturnDate = activeRes?.EndDate,
+                    CurrentLocation = activeRes?.CurrentLocationText ?? activeRes?.PickupLocation,
+                    CurrentLatitude = activeRes?.CurrentLatitude,
+                    CurrentLongitude = activeRes?.CurrentLongitude,
+                    LocationUpdatedAt = activeRes?.LocationUpdatedAt
                 };
             });
             return Ok(result);

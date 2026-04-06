@@ -12,6 +12,10 @@ namespace AracKiralamaPortali.API.DTOs
         public string Status { get; set; } = null!;
         public string? PickupLocation { get; set; }
         public string? DropoffLocation { get; set; }
+        public string? CurrentLocationText { get; set; }
+        public double? CurrentLatitude { get; set; }
+        public double? CurrentLongitude { get; set; }
+        public DateTime? LocationUpdatedAt { get; set; }
         public DateTime CreatedAt { get; set; }
         public string? Notes { get; set; }
         public string AppUserId { get; set; } = null!;

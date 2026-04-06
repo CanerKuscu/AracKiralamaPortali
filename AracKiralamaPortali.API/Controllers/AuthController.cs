@@ -1,12 +1,13 @@
 using System.IdentityModel.Tokens.Jwt;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using AracKiralamaPortali.API.Data;
 using AracKiralamaPortali.API.DTOs;
 using AracKiralamaPortali.API.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 namespace AracKiralamaPortali.API.Controllers
@@ -17,20 +18,79 @@ namespace AracKiralamaPortali.API.Controllers
         UserManager<AppUser> userManager,
         SignInManager<AppUser> signInManager,
         RoleManager<IdentityRole> roleManager,
-        IConfiguration configuration) : ControllerBase
+        IConfiguration configuration,
+        AppDbContext context) : ControllerBase
     {
         private readonly UserManager<AppUser> _userManager = userManager;
         private readonly SignInManager<AppUser> _signInManager = signInManager;
         private readonly RoleManager<IdentityRole> _roleManager = roleManager;
         private readonly IConfiguration _configuration = configuration;
+        private readonly AppDbContext _context = context;
 
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            // UserName benzersizlik kontrolü
+            if (dto.LicenseIssueDate.HasValue && dto.LicenseIssueDate.Value.Date > DateTime.Today)
+                return BadRequest(new { message = "Ehliyet veriliþ tarihi bugünden ileri bir tarih olamaz." });
+
             var existingUser = await _userManager.FindByNameAsync(dto.UserName);
             if (existingUser != null)
-                return BadRequest(new { message = "This username is already taken." });
+            {
+                if (!existingUser.IsDeleted)
+                    return BadRequest(new { message = "This username is already taken." });
+
+                var emailOwner = await _userManager.FindByEmailAsync(dto.Email);
+                if (emailOwner != null && emailOwner.Id != existingUser.Id)
+                    return BadRequest(new { message = "This email is already taken." });
+
+                existingUser.FullName = dto.FullName;
+                existingUser.Email = dto.Email;
+                existingUser.UserName = dto.UserName;
+                existingUser.PhoneNumber = dto.PhoneNumber;
+                existingUser.TCKimlik = dto.TCKimlik;
+                existingUser.BirthDate = dto.BirthDate;
+                existingUser.Address = dto.Address;
+                existingUser.LicenseClass = dto.LicenseClass;
+                existingUser.LicenseIssueDate = dto.LicenseIssueDate;
+                existingUser.IsDeleted = false;
+                existingUser.DeletedAt = null;
+                existingUser.IsActive = true;
+                existingUser.IsBlackListed = false;
+                existingUser.BlackListReason = null;
+
+                var updateResult = await _userManager.UpdateAsync(existingUser);
+                if (!updateResult.Succeeded)
+                    return BadRequest(updateResult.Errors);
+
+                var resetToken = await _userManager.GeneratePasswordResetTokenAsync(existingUser);
+                var resetResult = await _userManager.ResetPasswordAsync(existingUser, resetToken, dto.Password);
+                if (!resetResult.Succeeded)
+                    return BadRequest(resetResult.Errors);
+
+                var currentRoles = await _userManager.GetRolesAsync(existingUser);
+                if (currentRoles.Count > 0)
+                {
+                    var removeRolesResult = await _userManager.RemoveFromRolesAsync(existingUser, currentRoles);
+                    if (!removeRolesResult.Succeeded)
+                        return BadRequest(removeRolesResult.Errors);
+                }
+
+                var roleToAssignRecovered = "User";
+                if (!string.IsNullOrEmpty(dto.Role) && (dto.Role == "User" || dto.Role == "CarOwner"))
+                {
+                    roleToAssignRecovered = dto.Role;
+                }
+
+                var addRoleResult = await _userManager.AddToRoleAsync(existingUser, roleToAssignRecovered);
+                if (!addRoleResult.Succeeded)
+                    return BadRequest(addRoleResult.Errors);
+
+                return Ok(new { message = "Kayýt iþlemi baþarýlý." });
+            }
+
+            var existingEmailUser = await _userManager.FindByEmailAsync(dto.Email);
+            if (existingEmailUser != null)
+                return BadRequest(new { message = "This email is already taken." });
 
             var user = new AppUser
             {
@@ -39,6 +99,7 @@ namespace AracKiralamaPortali.API.Controllers
                 UserName = dto.UserName,
                 PhoneNumber = dto.PhoneNumber,
                 TCKimlik = dto.TCKimlik,
+                BirthDate = dto.BirthDate,
                 Address = dto.Address,
                 LicenseClass = dto.LicenseClass,
                 LicenseIssueDate = dto.LicenseIssueDate
@@ -94,6 +155,7 @@ namespace AracKiralamaPortali.API.Controllers
                     UserName = user.UserName!,
                     PhoneNumber = user.PhoneNumber,
                     TCKimlik = user.TCKimlik,
+                    BirthDate = user.BirthDate,
                     Address = user.Address,
                     LicenseClass = user.LicenseClass,
                     LicenseIssueDate = user.LicenseIssueDate,
@@ -101,7 +163,7 @@ namespace AracKiralamaPortali.API.Controllers
                     BlackListReason = user.BlackListReason,
                     IsActive = user.IsActive,
                     CreatedAt = user.CreatedAt,
-                    Roles = roles.ToList()
+                    Roles = [.. roles]
                 });
             }
 
@@ -125,6 +187,7 @@ namespace AracKiralamaPortali.API.Controllers
                 UserName = user.UserName!,
                 PhoneNumber = user.PhoneNumber,
                 TCKimlik = user.TCKimlik,
+                BirthDate = user.BirthDate,
                 Address = user.Address,
                 LicenseClass = user.LicenseClass,
                 LicenseIssueDate = user.LicenseIssueDate,
@@ -132,7 +195,7 @@ namespace AracKiralamaPortali.API.Controllers
                 BlackListReason = user.BlackListReason,
                 IsActive = user.IsActive,
                 CreatedAt = user.CreatedAt,
-                Roles = roles.ToList()
+                Roles = [.. roles]
             };
 
             return Ok(dto);
@@ -142,6 +205,9 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpPut("users/{id}")]
         public async Task<IActionResult> UpdateUser(string id, [FromBody] UserUpdateDto dto)
         {
+            if (dto.LicenseIssueDate.HasValue && dto.LicenseIssueDate.Value.Date > DateTime.Today)
+                return BadRequest(new { message = "Ehliyet veriliþ tarihi bugünden ileri bir tarih olamaz." });
+
             var user = await _userManager.FindByIdAsync(id);
             if (user == null)
                 return NotFound();
@@ -150,6 +216,7 @@ namespace AracKiralamaPortali.API.Controllers
             user.Email = dto.Email;
             user.PhoneNumber = dto.PhoneNumber;
             user.TCKimlik = dto.TCKimlik;
+            user.BirthDate = dto.BirthDate;
             user.Address = dto.Address;
             user.LicenseClass = dto.LicenseClass;
             user.LicenseIssueDate = dto.LicenseIssueDate;
@@ -171,6 +238,10 @@ namespace AracKiralamaPortali.API.Controllers
             var user = await _userManager.FindByIdAsync(id);
             if (user == null)
                 return NotFound();
+
+            var userRoles = await _userManager.GetRolesAsync(user);
+            if (userRoles.Contains("Admin"))
+                return BadRequest(new { message = "Admin hesabý silinemez." });
 
             // Soft Delete - Veritabanýndan silme deðil, iþaretleme
             user.IsDeleted = true;
@@ -218,6 +289,7 @@ namespace AracKiralamaPortali.API.Controllers
                 UserName = user.UserName!,
                 PhoneNumber = user.PhoneNumber,
                 TCKimlik = user.TCKimlik,
+                BirthDate = user.BirthDate,
                 Address = user.Address,
                 LicenseClass = user.LicenseClass,
                 LicenseIssueDate = user.LicenseIssueDate,
@@ -225,7 +297,7 @@ namespace AracKiralamaPortali.API.Controllers
                 BlackListReason = user.BlackListReason,
                 IsActive = user.IsActive,
                 CreatedAt = user.CreatedAt,
-                Roles = roles.ToList()
+                Roles = [.. roles]
             };
 
             return Ok(dto);

@@ -81,6 +81,9 @@
                     if (r.status === "Pending") {
                         html += '<button class="btn btn-sm btn-success me-1" onclick="openPayment(' + r.id + ',' + r.totalPrice + ')"><i class="fas fa-credit-card"></i></button>';
                     }
+                    if (r.status === "Confirmed") {
+                        html += '<button class="btn btn-sm btn-info me-1" onclick="shareLocation(' + r.id + ')"><i class="fas fa-location-dot"></i></button>';
+                    }
                     if (r.status === "Pending" || r.status === "Confirmed") {
                         html += '<button class="btn btn-sm btn-danger" onclick="cancelReservation(' + r.id + ')"><i class="fas fa-times"></i></button>';
                     }
@@ -113,6 +116,34 @@
         $("#payReservationId").val(resId);
         $("#payAmount").val(amount);
         new bootstrap.Modal(document.getElementById("paymentModal")).show();
+    }
+
+    function shareLocation(reservationId) {
+        if (!navigator.geolocation) {
+            showAlert("Tarayici konum ozelligini desteklemiyor.", "danger");
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(function (position) {
+            var lat = position.coords.latitude;
+            var lng = position.coords.longitude;
+            var locationText = "Lat: " + lat.toFixed(6) + ", Lng: " + lng.toFixed(6);
+
+            $.ajax({
+                url: apiBaseUrl + "/Reservations/" + reservationId + "/location",
+                type: "PUT",
+                contentType: "application/json",
+                data: JSON.stringify({
+                    currentLocationText: locationText,
+                    currentLatitude: lat,
+                    currentLongitude: lng
+                }),
+                success: function () { showAlert("Konumunuz paylasildi.", "success"); },
+                error: function () { showAlert("Konum paylasilirken hata olustu.", "danger"); }
+            });
+        }, function () {
+            showAlert("Konum alinamadi. Lutfen konum izni verin.", "warning");
+        });
     }
 
     $("#paymentForm").submit(function (e) {

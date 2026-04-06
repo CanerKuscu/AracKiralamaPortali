@@ -10,20 +10,11 @@ namespace AracKiralamaPortali.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class ReviewsController : ControllerBase
+    public class ReviewsController(
+        IReviewRepository reviewRepository,
+        IReservationRepository reservationRepository) : ControllerBase
     {
-        private readonly IRepository<Review> _reviewRepository;
-        private readonly IRepository<Reservation> _reservationRepository;
-
-        public ReviewsController(
-            IRepository<Review> reviewRepository,
-            IRepository<Reservation> reservationRepository)
-        {
-            _reviewRepository = reviewRepository;
-            _reservationRepository = reservationRepository;
-        }
-
-        private ReviewDto MapToDto(Review r) => new ReviewDto
+        private ReviewDto MapToDto(Review r) => new()
         {
             Id = r.Id,
             Rating = r.Rating,
@@ -40,7 +31,7 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpGet("vehicle/{vehicleId}")]
         public async Task<IActionResult> GetByVehicle(int vehicleId)
         {
-            var reviews = await _reviewRepository.GetQueryable()
+            var reviews = await reviewRepository.GetQueryable()
                 .Include(r => r.Vehicle).ThenInclude(v => v.Brand)
                 .Include(r => r.AppUser)
                 .Where(r => r.VehicleId == vehicleId)
@@ -52,7 +43,7 @@ namespace AracKiralamaPortali.API.Controllers
                 VehicleId = vehicleId,
                 AverageRating = reviews.Count > 0 ? reviews.Average(r => r.Rating) : 0,
                 TotalReviews = reviews.Count,
-                Reviews = reviews.Select(MapToDto).ToList()
+                Reviews = [.. reviews.Select(MapToDto)]
             };
 
             return Ok(summary);
@@ -61,7 +52,7 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var reviews = await _reviewRepository.GetQueryable()
+            var reviews = await reviewRepository.GetQueryable()
                 .Include(r => r.Vehicle).ThenInclude(v => v.Brand)
                 .Include(r => r.AppUser)
                 .OrderByDescending(r => r.CreatedAt)
@@ -75,7 +66,7 @@ namespace AracKiralamaPortali.API.Controllers
         public async Task<IActionResult> GetMyReviews()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var reviews = await _reviewRepository.GetQueryable()
+            var reviews = await reviewRepository.GetQueryable()
                 .Include(r => r.Vehicle).ThenInclude(v => v.Brand)
                 .Include(r => r.AppUser)
                 .Where(r => r.AppUserId == userId)
@@ -91,7 +82,7 @@ namespace AracKiralamaPortali.API.Controllers
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var reservation = await _reservationRepository.GetByIdAsync(dto.ReservationId);
+            var reservation = await reservationRepository.GetByIdAsync(dto.ReservationId);
             if (reservation == null)
                 return NotFound(new { message = "Rezervasyon bulunamadý." });
 
@@ -104,7 +95,7 @@ namespace AracKiralamaPortali.API.Controllers
             if (reservation.VehicleId != dto.VehicleId)
                 return BadRequest(new { message = "Araç bilgisi rezervasyon ile eþleþmiyor." });
 
-            var alreadyReviewed = await _reviewRepository.AnyAsync(r =>
+            var alreadyReviewed = await reviewRepository.AnyAsync(r =>
                 r.ReservationId == dto.ReservationId && r.AppUserId == userId);
             if (alreadyReviewed)
                 return BadRequest(new { message = "Bu rezervasyon için zaten yorum yaptýnýz." });
@@ -118,8 +109,8 @@ namespace AracKiralamaPortali.API.Controllers
                 ReservationId = dto.ReservationId
             };
 
-            await _reviewRepository.AddAsync(review);
-            await _reviewRepository.SaveChangesAsync();
+            await reviewRepository.AddAsync(review);
+            await reviewRepository.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetByVehicle), new { vehicleId = review.VehicleId },
                 new { review.Id, review.Rating, review.Comment });
@@ -129,15 +120,15 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var review = await _reviewRepository.GetByIdAsync(id);
+            var review = await reviewRepository.GetByIdAsync(id);
             if (review == null) return NotFound();
 
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (review.AppUserId != userId && !User.IsInRole("Admin"))
                 return Forbid();
 
-            _reviewRepository.Delete(review);
-            await _reviewRepository.SaveChangesAsync();
+            reviewRepository.Delete(review);
+            await reviewRepository.SaveChangesAsync();
             return Ok(new { message = "Yorum baþarýyla silindi." });
         }
     }

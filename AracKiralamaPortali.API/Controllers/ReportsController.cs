@@ -9,27 +9,17 @@ namespace AracKiralamaPortali.API.Controllers
     [Route("api/[controller]")]
     [ApiController]
     [Authorize(Roles = "Admin")]
-    public class ReportsController : ControllerBase
+    public class ReportsController(
+        IReservationRepository reservationRepository,
+        IPaymentRepository paymentRepository,
+        IVehicleRepository vehicleRepository) : ControllerBase
     {
-        private readonly IRepository<Reservation> _reservationRepository;
-        private readonly IRepository<Payment> _paymentRepository;
-        private readonly IRepository<Vehicle> _vehicleRepository;
-
-        public ReportsController(
-            IRepository<Reservation> reservationRepository,
-            IRepository<Payment> paymentRepository,
-            IRepository<Vehicle> vehicleRepository)
-        {
-            _reservationRepository = reservationRepository;
-            _paymentRepository = paymentRepository;
-            _vehicleRepository = vehicleRepository;
-        }
 
         [HttpGet("revenue")]
         public async Task<IActionResult> GetRevenueReport([FromQuery] int? year)
         {
             var y = year ?? DateTime.Now.Year;
-            var payments = await _paymentRepository.GetQueryable()
+            var payments = await paymentRepository.GetQueryable()
                 .Where(p => p.PaymentDate.Year == y && p.Status == "Completed")
                 .ToListAsync();
 
@@ -45,7 +35,7 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpGet("popular-vehicles")]
         public async Task<IActionResult> GetPopularVehicles()
         {
-            var reservations = await _reservationRepository.GetQueryable()
+            var reservations = await reservationRepository.GetQueryable()
                 .Include(r => r.Vehicle).ThenInclude(v => v.Brand)
                 .Where(r => r.Status != "Cancelled")
                 .ToListAsync();
@@ -54,9 +44,9 @@ namespace AracKiralamaPortali.API.Controllers
                 .Select(g => new
                 {
                     VehicleId = g.Key,
-                    Plate = g.First().Vehicle.Plate,
+                    g.First().Vehicle.Plate,
                     Brand = g.First().Vehicle.Brand.Name,
-                    Model = g.First().Vehicle.Model,
+                    g.First().Vehicle.Model,
                     RentalCount = g.Count(),
                     TotalRevenue = g.Sum(r => r.TotalPrice)
                 })
@@ -69,11 +59,15 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpGet("summary")]
         public async Task<IActionResult> GetSummary()
         {
-            var totalVehicles = await _vehicleRepository.GetQueryable().CountAsync();
-            var availableVehicles = await _vehicleRepository.GetQueryable().CountAsync(v => v.VehicleStatus == "Available");
-            var totalReservations = await _reservationRepository.GetQueryable().CountAsync();
-            var activeReservations = await _reservationRepository.GetQueryable().CountAsync(r => r.Status == "Confirmed");
-            var totalRevenue = await _paymentRepository.GetQueryable().Where(p => p.Status == "Completed").SumAsync(p => p.Amount);
+            var vehicleQuery = vehicleRepository.GetQueryable()
+                .Where(v => v.IsActive)
+                .Where(v => v.OwnerId == null || (v.Owner != null && !v.Owner.IsDeleted && v.Owner.IsActive));
+
+            var totalVehicles = await vehicleQuery.CountAsync();
+            var availableVehicles = await vehicleQuery.CountAsync(v => v.VehicleStatus == "Available");
+            var totalReservations = await reservationRepository.GetQueryable().CountAsync();
+            var activeReservations = await reservationRepository.GetQueryable().CountAsync(r => r.Status == "Confirmed");
+            var totalRevenue = await paymentRepository.GetQueryable().Where(p => p.Status == "Completed").SumAsync(p => p.Amount);
 
             return Ok(new { totalVehicles, availableVehicles, totalReservations, activeReservations, totalRevenue });
         }

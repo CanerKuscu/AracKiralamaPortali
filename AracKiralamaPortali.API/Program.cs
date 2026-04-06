@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Globalization;
 using System.Text;
 using AracKiralamaPortali.API.Data;
 using AracKiralamaPortali.API.Models;
@@ -14,6 +13,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
+const string seedAdminPassword = "Admin123";
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -26,6 +26,7 @@ builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
     options.Password.RequireNonAlphanumeric = false;
     options.Password.RequiredLength = 6;
     options.User.RequireUniqueEmail = true;
+    options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+çÇðÐýÝöÖþÞüÜ";
 })
 .AddEntityFrameworkStores<AppDbContext>()
 .AddErrorDescriber<CustomIdentityErrorDescriber>()
@@ -51,7 +52,14 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+builder.Services.AddScoped<IAdditionalServiceRepository, AdditionalServiceRepository>();
+builder.Services.AddScoped<IBrandRepository, BrandRepository>();
+builder.Services.AddScoped<IMaintenanceRepository, MaintenanceRepository>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IReservationRepository, ReservationRepository>();
+builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
+builder.Services.AddScoped<IVehicleRepository, VehicleRepository>();
+builder.Services.AddScoped<IVehicleImageRepository, VehicleImageRepository>();
 builder.Services.AddScoped<IPasswordHasherService>(sp => new PasswordHasherService(workFactor: 12));
 
 builder.Services.AddLocalization();
@@ -185,8 +193,38 @@ using (var scope = app.Services.CreateScope())
             Email = "admin@arackiralama.com",
             EmailConfirmed = true
         };
-        await userManager.CreateAsync(adminUser, "Admin123");
+        await userManager.CreateAsync(adminUser, seedAdminPassword);
         await userManager.AddToRoleAsync(adminUser, "Admin");
+    }
+    else
+    {
+        var adminUpdated = false;
+
+        if (adminUser.IsDeleted)
+        {
+            adminUser.IsDeleted = false;
+            adminUser.DeletedAt = null;
+            adminUpdated = true;
+        }
+
+        if (!adminUser.IsActive)
+        {
+            adminUser.IsActive = true;
+            adminUpdated = true;
+        }
+
+        if (adminUpdated)
+            await userManager.UpdateAsync(adminUser);
+
+        if (!await userManager.IsInRoleAsync(adminUser, "Admin"))
+            await userManager.AddToRoleAsync(adminUser, "Admin");
+
+        var hasSeedPassword = await userManager.CheckPasswordAsync(adminUser, seedAdminPassword);
+        if (!hasSeedPassword)
+        {
+            var resetToken = await userManager.GeneratePasswordResetTokenAsync(adminUser);
+            await userManager.ResetPasswordAsync(adminUser, resetToken, seedAdminPassword);
+        }
     }
 }
 

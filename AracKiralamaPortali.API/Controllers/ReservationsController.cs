@@ -5,43 +5,37 @@ using AracKiralamaPortali.API.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 
 namespace AracKiralamaPortali.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
-    public class ReservationsController : ControllerBase
+    public class ReservationsController(
+        IReservationRepository reservationRepository,
+        IVehicleRepository vehicleRepository,
+        IAdditionalServiceRepository serviceRepository,
+        IPaymentRepository paymentRepository,
+        IReviewRepository reviewRepository) : ControllerBase
     {
-        private readonly IRepository<Reservation> _reservationRepository;
-        private readonly IRepository<Vehicle> _vehicleRepository;
-        private readonly IRepository<AdditionalService> _serviceRepository;
-
-        public ReservationsController(
-            IRepository<Reservation> reservationRepository,
-            IRepository<Vehicle> vehicleRepository,
-            IRepository<AdditionalService> serviceRepository)
-        {
-            _reservationRepository = reservationRepository;
-            _vehicleRepository = vehicleRepository;
-            _serviceRepository = serviceRepository;
-        }
-
-        private ReservationDto MapToDto(Reservation r) => new ReservationDto
+        private ReservationDto MapToDto(Reservation r) => new()
         {
             Id = r.Id, StartDate = r.StartDate, EndDate = r.EndDate, TotalPrice = r.TotalPrice,
             DepositAmount = r.DepositAmount, Status = r.Status, PickupLocation = r.PickupLocation,
-            DropoffLocation = r.DropoffLocation, CreatedAt = r.CreatedAt, Notes = r.Notes,
+            DropoffLocation = r.DropoffLocation, CurrentLocationText = r.CurrentLocationText,
+            CurrentLatitude = r.CurrentLatitude, CurrentLongitude = r.CurrentLongitude,
+            LocationUpdatedAt = r.LocationUpdatedAt, CreatedAt = r.CreatedAt, Notes = r.Notes,
             AppUserId = r.AppUserId, UserFullName = r.AppUser.FullName, VehicleId = r.VehicleId,
             VehiclePlate = r.Vehicle.Plate, BrandName = r.Vehicle.Brand.Name,
-            AdditionalServices = r.ReservationServices.Select(rs => rs.AdditionalService.Name).ToList()
+            AdditionalServices = [.. r.ReservationServices.Select(rs => rs.AdditionalService.Name)]
         };
 
         [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var reservations = await _reservationRepository.GetQueryable()
+            var reservations = await reservationRepository.GetQueryable()
                 .Include(r => r.AppUser).Include(r => r.Vehicle).ThenInclude(v => v.Brand)
                 .Include(r => r.ReservationServices).ThenInclude(rs => rs.AdditionalService)
                 .ToListAsync();
@@ -52,7 +46,7 @@ namespace AracKiralamaPortali.API.Controllers
         public async Task<IActionResult> GetMyReservations()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var reservations = await _reservationRepository.GetQueryable()
+            var reservations = await reservationRepository.GetQueryable()
                 .Include(r => r.Vehicle).ThenInclude(v => v.Brand).Include(r => r.AppUser)
                 .Include(r => r.ReservationServices).ThenInclude(rs => rs.AdditionalService)
                 .Where(r => r.AppUserId == userId).ToListAsync();
@@ -62,7 +56,7 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var reservation = await _reservationRepository.GetQueryable()
+            var reservation = await reservationRepository.GetQueryable()
                 .Include(r => r.AppUser).Include(r => r.Vehicle).ThenInclude(v => v.Brand)
                 .Include(r => r.ReservationServices).ThenInclude(rs => rs.AdditionalService)
                 .FirstOrDefaultAsync(r => r.Id == id);
@@ -87,7 +81,7 @@ namespace AracKiralamaPortali.API.Controllers
             if (endDate <= startDate)
                 return BadRequest(new { message = "Bitis tarihi baslangic tarihinden sonra olmalidir." });
 
-            var vehicle = await _vehicleRepository.GetQueryable()
+            var vehicle = await vehicleRepository.GetQueryable()
                 .Include(v => v.Reservations)
                 .FirstOrDefaultAsync(v => v.Id == dto.VehicleId);
             
@@ -105,7 +99,7 @@ namespace AracKiralamaPortali.API.Controllers
                 return BadRequest(new { message = $"Araç {currentRental.EndDate:yyyy-MM-dd HH:mm} tarihine kadar kirada. Lütfen bu tarihten sonrasýný seçin." });
 
             // Ýstenen tarihler için çakýþma kontrol et
-            var hasConflict = await _reservationRepository.AnyAsync(r =>
+            var hasConflict = await reservationRepository.AnyAsync(r =>
                 r.VehicleId == dto.VehicleId && r.Status == "Confirmed" &&
                 r.StartDate < dto.EndDate && r.EndDate > dto.StartDate);
             if (hasConflict) return BadRequest(new { message = "Araç seçilen tarihlerde zaten rezerve edilmiþ." });
@@ -141,11 +135,11 @@ namespace AracKiralamaPortali.API.Controllers
                 DepositAmount = vehicle.DailyPrice * 3
             };
 
-            if (dto.AdditionalServiceIds != null && dto.AdditionalServiceIds.Any())
+            if (dto.AdditionalServiceIds is { Count: > 0 })
             {
                 foreach (var svcId in dto.AdditionalServiceIds)
                 {
-                    var svc = await _serviceRepository.GetByIdAsync(svcId);
+                    var svc = await serviceRepository.GetByIdAsync(svcId);
                     if (svc != null && svc.IsActive)
                     {
                         reservation.ReservationServices.Add(new ReservationService { AdditionalServiceId = svcId });
@@ -156,8 +150,8 @@ namespace AracKiralamaPortali.API.Controllers
 
             reservation.TotalPrice = totalPrice + serviceTotal;
 
-            await _reservationRepository.AddAsync(reservation);
-            await _reservationRepository.SaveChangesAsync();
+            await reservationRepository.AddAsync(reservation);
+            await reservationRepository.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetById), new { id = reservation.Id },
                 new { reservation.Id, reservation.TotalPrice, reservation.DepositAmount });
@@ -167,12 +161,12 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] ReservationUpdateDto dto)
         {
-            var reservation = await _reservationRepository.GetByIdAsync(id);
+            var reservation = await reservationRepository.GetByIdAsync(id);
             if (reservation == null) return NotFound();
             reservation.StartDate = dto.StartDate; reservation.EndDate = dto.EndDate;
             reservation.Status = dto.Status; reservation.Notes = dto.Notes;
-            _reservationRepository.Update(reservation);
-            await _reservationRepository.SaveChangesAsync();
+            reservationRepository.Update(reservation);
+            await reservationRepository.SaveChangesAsync();
             return Ok(new { message = "Rezervasyon baþarýyla güncellendi." });
         }
 
@@ -180,24 +174,42 @@ namespace AracKiralamaPortali.API.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var reservation = await _reservationRepository.GetByIdAsync(id);
+            var reservation = await reservationRepository.GetQueryable()
+                .Include(r => r.ReservationServices)
+                .Include(r => r.Payment)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
             if (reservation == null) return NotFound();
-            _reservationRepository.Delete(reservation);
-            await _reservationRepository.SaveChangesAsync();
+
+            var reviews = await reviewRepository.GetQueryable()
+                .Where(r => r.ReservationId == id)
+                .ToListAsync();
+
+            foreach (var review in reviews)
+                reviewRepository.Delete(review);
+
+            if (reservation.Payment != null)
+                paymentRepository.Delete(reservation.Payment);
+
+            foreach (var reservationService in reservation.ReservationServices.ToList())
+                reservation.ReservationServices.Remove(reservationService);
+
+            reservationRepository.Delete(reservation);
+            await reservationRepository.SaveChangesAsync();
             return Ok(new { message = "Rezervasyon baþarýyla silindi." });
         }
 
         [HttpPut("{id}/cancel")]
         public async Task<IActionResult> Cancel(int id)
         {
-            var reservation = await _reservationRepository.GetByIdAsync(id);
+            var reservation = await reservationRepository.GetByIdAsync(id);
             if (reservation == null) return NotFound();
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (reservation.AppUserId != userId && !User.IsInRole("Admin")) return Forbid();
             if (reservation.Status == "Cancelled") return BadRequest(new { message = "Rezervasyon zaten iptal edilmiþ." });
             reservation.Status = "Cancelled";
-            _reservationRepository.Update(reservation);
-            await _reservationRepository.SaveChangesAsync();
+            reservationRepository.Update(reservation);
+            await reservationRepository.SaveChangesAsync();
             return Ok(new { message = "Rezervasyon baþarýyla iptal edildi." });
         }
     }

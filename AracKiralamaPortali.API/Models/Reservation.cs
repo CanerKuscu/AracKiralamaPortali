@@ -26,6 +26,13 @@ namespace AracKiralamaPortali.API.Models
         [MaxLength(200)]
         public string? DropoffLocation { get; set; }
 
+        [MaxLength(200)]
+        public string? CurrentLocationText { get; set; }
+
+        public double? CurrentLatitude { get; set; }
+        public double? CurrentLongitude { get; set; }
+        public DateTime? LocationUpdatedAt { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         [MaxLength(500)]

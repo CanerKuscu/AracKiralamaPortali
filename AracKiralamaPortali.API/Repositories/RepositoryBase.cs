@@ -4,16 +4,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AracKiralamaPortali.API.Repositories
 {
-    public class Repository<T> : IRepository<T> where T : class
+    public abstract class RepositoryBase<T>(AppDbContext context) where T : class
     {
-        private readonly AppDbContext _context;
-        private readonly DbSet<T> _dbSet;
-
-        public Repository(AppDbContext context)
-        {
-            _context = context;
-            _dbSet = context.Set<T>();
-        }
+        private readonly AppDbContext _context = context;
+        private readonly DbSet<T> _dbSet = context.Set<T>();
 
         public async Task<IEnumerable<T>> GetAllAsync()
         {
