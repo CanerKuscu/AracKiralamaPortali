@@ -248,6 +248,11 @@ namespace AracKiralamaPortali.API.Controllers
             user.DeletedAt = DateTime.UtcNow;
             user.IsActive = false;
 
+            // Free up the email and username for future registration
+            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            user.Email = $"deleted_{timestamp}_{user.Email}";
+            user.UserName = $"deleted_{timestamp}_{user.UserName}";
+
             var result = await _userManager.UpdateAsync(user);
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
@@ -301,6 +306,38 @@ namespace AracKiralamaPortali.API.Controllers
             };
 
             return Ok(dto);
+        }
+
+        [Authorize]
+        [HttpDelete("delete-my-account")]
+        public async Task<IActionResult> DeleteMyAccount([FromBody] DeleteAccountDto dto)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var user = await _userManager.FindByIdAsync(userId!);
+            if (user == null || user.IsDeleted)
+                return NotFound();
+
+            var passwordCheck = await _userManager.CheckPasswordAsync(user, dto.Password);
+            if (!passwordCheck)
+                return BadRequest(new { message = "Girdiðiniz þifre hatalý." });
+
+            var userRoles = await _userManager.GetRolesAsync(user);
+            if (userRoles.Contains("Admin"))
+                return BadRequest(new { message = "Admin hesabý silinemez." });
+
+            user.IsDeleted = true;
+            user.DeletedAt = DateTime.UtcNow;
+            user.IsActive = false;
+
+            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            user.Email = $"deleted_{timestamp}_{user.Email}";
+            user.UserName = $"deleted_{timestamp}_{user.UserName}";
+
+            var result = await _userManager.UpdateAsync(user);
+            if (!result.Succeeded)
+                return BadRequest(result.Errors);
+
+            return Ok(new { message = "Hesabýnýz baþarýyla silindi." });
         }
 
         [Authorize(Roles = "Admin")]

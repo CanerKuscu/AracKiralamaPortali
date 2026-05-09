@@ -24,6 +24,8 @@ namespace AracKiralamaPortali.API.DTOs
         public int LuggageCapacity { get; set; }
         public int BrandId { get; set; }
         public string BrandName { get; set; } = null!;
+        public string? City { get; set; }
+        public string? District { get; set; }
         public DateTime? InsuranceExpiryDate { get; set; }
         public DateTime? InspectionExpiryDate { get; set; }
         public bool HasAccidentHistory { get; set; }
@@ -64,6 +66,8 @@ namespace AracKiralamaPortali.API.DTOs
         public int Mileage { get; set; }
         public int PassengerCapacity { get; set; } = 5;
         public int LuggageCapacity { get; set; } = 2;
+        public string? City { get; set; }
+        public string? District { get; set; }
         public int BrandId { get; set; }
         public string? BrandName { get; set; }
         public DateTime? InsuranceExpiryDate { get; set; }
@@ -109,6 +113,8 @@ namespace AracKiralamaPortali.API.DTOs
         public int LuggageCapacity { get; set; }
         public int BrandId { get; set; }
         public string? BrandName { get; set; }
+        public string? City { get; set; }
+        public string? District { get; set; }
         public DateTime? InsuranceExpiryDate { get; set; }
         public DateTime? InspectionExpiryDate { get; set; }
         public bool HasAccidentHistory { get; set; }

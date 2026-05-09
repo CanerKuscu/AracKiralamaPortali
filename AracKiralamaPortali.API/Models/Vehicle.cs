@@ -49,14 +49,21 @@ namespace AracKiralamaPortali.API.Models
         public int PassengerCapacity { get; set; } = 5;
         public int LuggageCapacity { get; set; } = 2;
 
+        [MaxLength(100)]
+        public string? City { get; set; }
+
+        [MaxLength(100)]
+        public string? District { get; set; }
+
         public DateTime? InsuranceExpiryDate { get; set; }
         public DateTime? InspectionExpiryDate { get; set; }
-        public bool HasAccidentHistory { get; set; } = false;
+        public bool HasAccidentHistory { get; set; }
 
         public int BrandId { get; set; }
         [JsonIgnore]
         public Brand Brand { get; set; } = null!;
 
+        // Müþterinin eklediði araçlar için sahip (User) id'si
         public string? OwnerId { get; set; }
         [JsonIgnore]
         public AppUser? Owner { get; set; }
@@ -71,3 +78,4 @@ namespace AracKiralamaPortali.API.Models
         public ICollection<VehicleImage> Images { get; set; } = new List<VehicleImage>();
     }
 }
+

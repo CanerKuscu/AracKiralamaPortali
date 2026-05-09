@@ -36,6 +36,8 @@
                         <select class="form-select" id="erStatus" required>
                             <option value="Pending">Beklemede</option>
                             <option value="Confirmed">Onaylandi</option>
+                            <option value="ReturnPending">Teslim Bekliyor</option>
+                            <option value="Completed">Tamamlandi</option>
                             <option value="Cancelled">Iptal</option>
                         </select>
                     </div>
@@ -69,8 +71,11 @@
                     html += "<td>" + r.totalPrice + " TL</td>";
                     html += "<td>" + r.depositAmount + " TL</td>";
                     html += "<td>" + (r.additionalServices && r.additionalServices.length > 0 ? r.additionalServices.join(", ") : "-") + "</td>";
-                    html += "<td>" + getStatusBadge(r.status) + "</td>";
+                    html += "<td>" + getStatusBadge(r.status) + (r.isReturnConfirmed ? ' <span class="badge bg-info mt-1"><i class="fas fa-check-circle"></i> Iade Onayli</span>' : '') + "</td>";
                     html += '<td><button class="btn btn-sm btn-warning me-1" onclick="editRes(' + r.id + ')"><i class="fas fa-edit"></i></button>';
+                    if ((r.status === "Confirmed" || r.status === "ReturnPending" || r.status === "Completed") && !r.isReturnConfirmed) {
+                        html += '<button class="btn btn-sm btn-success me-1" onclick="confirmReturn(' + r.id + ')" title="Iade Onayla"><i class="fas fa-check-double"></i></button>';
+                    }
                     html += '<button class="btn btn-sm btn-danger" onclick="deleteRes(' + r.id + ')"><i class="fas fa-trash"></i></button></td></tr>';
                 });
                 $("#reservationList").html(html);
@@ -81,6 +86,8 @@
     function getStatusBadge(s) {
         if (s === "Pending") return '<span class="badge bg-warning text-dark">Beklemede</span>';
         if (s === "Confirmed") return '<span class="badge bg-success">Onaylandi</span>';
+        if (s === "ReturnPending") return '<span class="badge bg-warning">Teslim Bekleniyor</span>';
+        if (s === "Completed") return '<span class="badge bg-info">Tamamlandi</span>';
         if (s === "Cancelled") return '<span class="badge bg-danger">Iptal</span>';
         return '<span class="badge bg-secondary">' + s + '</span>';
     }
@@ -109,12 +116,23 @@
         });
     });
 
+    function confirmReturn(id) {
+        appConfirm("Arac iadesini onaylamak istiyor musunuz? Bu islem araci tekrar musait duruma getirecektir.", function() {
+            $.ajax({
+                url: apiBaseUrl + "/Reservations/" + id + "/confirm-return", type: "PUT",
+                success: function () { showAlert("Iade basariyla onaylandi.", "success"); loadReservations(); },
+                error: function (err) { showAlert(err.responseJSON ? err.responseJSON.message : "Iade onaylanirken hata olustu.", "danger"); }
+            });
+        });
+    }
+
     function deleteRes(id) {
-        if (!confirm("Silmek istiyor musunuz?")) return;
-        $.ajax({
-            url: apiBaseUrl + "/Reservations/" + id, type: "DELETE",
-            success: function () { showAlert("Silindi.", "success"); loadReservations(); },
-            error: function () { showAlert("Hata.", "danger"); }
+        appConfirm("Silmek istiyor musunuz?", function() {
+            $.ajax({
+                url: apiBaseUrl + "/Reservations/" + id, type: "DELETE",
+                success: function () { showAlert("Silindi.", "success"); loadReservations(); },
+                error: function () { showAlert("Hata.", "danger"); }
+            });
         });
     }
 </script>

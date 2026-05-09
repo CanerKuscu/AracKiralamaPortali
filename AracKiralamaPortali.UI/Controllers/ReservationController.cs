@@ -11,5 +11,7 @@ namespace AracKiralamaPortali.UI.Controllers
         }
 
         public IActionResult MyReservations() => View();
+
+        public IActionResult Notifications() => View();
     }
 }

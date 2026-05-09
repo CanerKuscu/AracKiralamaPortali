@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" />
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -39,19 +40,18 @@
                     <li class="nav-item d-none" id="navMyVehicles">
                         <a class="nav-link" asp-controller="Admin" asp-action="Vehicles"><i class="fas fa-car-side"></i> Araclarim (Kiralaya Ver)</a>
                     </li>
+                    <li class="nav-item d-none" id="navNotifications">
+                        <a class="nav-link" asp-controller="Reservation" asp-action="Notifications">
+                            <i class="fas fa-bell"></i> Bildirimler <span class="badge bg-danger" id="navNotificationCount"></span>
+                        </a>
+                    </li>
                     <li class="nav-item dropdown d-none" id="navAdmin">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"><i class="fas fa-cogs"></i> Yonetim</a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" asp-controller="Admin" asp-action="Brands">Markalar</a></li>
                             <li><a class="dropdown-item" asp-controller="Admin" asp-action="Vehicles">Araclar</a></li>
-                            <li><a class="dropdown-item" asp-controller="Admin" asp-action="AdditionalServices">Ek Hizmetler</a></li>
                             <li><hr class="dropdown-divider" /></li>
                             <li><a class="dropdown-item" asp-controller="Admin" asp-action="Reservations">Rezervasyonlar</a></li>
-                            <li><a class="dropdown-item" asp-controller="Admin" asp-action="Payments">Odemeler</a></li>
-                            <li><hr class="dropdown-divider" /></li>
-                            <li><a class="dropdown-item" asp-controller="Admin" asp-action="Fleet">Filo Takibi</a></li>
-                            <li><a class="dropdown-item" asp-controller="Admin" asp-action="Maintenances">Bakim Takibi</a></li>
-                            <li><a class="dropdown-item" asp-controller="Admin" asp-action="Reports">Raporlar</a></li>
                             <li><hr class="dropdown-divider" /></li>
                             <li><a class="dropdown-item" asp-controller="Admin" asp-action="Users">Kullanicilar</a></li>
                         </ul>
@@ -86,6 +86,7 @@
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         var apiBaseUrl = "https://localhost:7194/api";
 
@@ -120,7 +121,38 @@
         function logout() { removeToken(); window.location.href = "/"; }
 
         function showAlert(msg, type) {
-            $("#alertContainer").html('<div class="alert alert-' + type + ' alert-dismissible fade show">' + msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>');
+            Swal.fire({
+                title: type === 'danger' ? 'Hata' : (type === 'success' ? 'Başarılı' : 'Bilgi'),
+                text: msg,
+                icon: type === 'danger' ? 'error' : type,
+                confirmButtonText: 'Tamam'
+            });
+        }
+
+        function appConfirm(message, callback) {
+            Swal.fire({
+                title: 'Emin misiniz?',
+                text: message,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Evet',
+                cancelButtonText: 'İptal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    callback();
+                }
+            });
+        }
+        
+        function appAlert(message, type) {
+            Swal.fire({
+                title: type === 'error' ? 'Hata!' : (type === 'success' ? 'Başarılı' : 'Bilgi'),
+                text: message,
+                icon: type || 'info',
+                confirmButtonText: 'Tamam'
+            });
         }
 
         function getApiRootUrl() {
@@ -138,19 +170,50 @@
                 var u = getUserInfo();
                 $("#navLogin, #navRegister").addClass("d-none");
                 $("#navProfile, #navMyReservations").removeClass("d-none");
-                
-                if (u && (u.role === "Admin" || u.role === "CarOwner")) {
+
+                if (u && (u.role === "CarOwner" || u.role === "Admin")) {
                     $("#navMyVehicles").removeClass("d-none");
                 } else {
                     $("#navMyVehicles").addClass("d-none");
                 }
-                
+
+                $("#navNotifications").removeClass("d-none");
+                checkReturnNotifications();
+
                 $("#navUserName").text(u.fullName);
-                if (isAdmin()) $("#navAdmin").removeClass("d-none");
+                if (isAdmin()) {
+                    $("#navAdmin").removeClass("d-none");
+                }
             } else {
                 $("#navLogin, #navRegister").removeClass("d-none");
-                $("#navProfile, #navMyReservations, #navMyVehicles, #navAdmin").addClass("d-none");
+                $("#navProfile, #navMyReservations, #navMyVehicles, #navAdmin, #navNotifications").addClass("d-none");
             }
+        }
+
+        function checkReturnNotifications() {
+            // Sadece CarOwner ve Adminler teslim bildirimlerini görebilir
+            var urlToCall = isAdmin() ? (apiBaseUrl + "/Reservations") : (apiBaseUrl + "/Reservations/owner-reservations");
+            $.ajax({
+                url: urlToCall,
+                type: "GET",
+                success: function (data) {
+                    var notificationCount = 0;
+                    $.each(data, function (i, r) {
+                        if (r.status === "ReturnPending" && !r.isReturnConfirmed) {
+                            notificationCount++;
+                        }
+                    });
+
+                    if (notificationCount > 0) {
+                        $("#navNotificationCount").text(notificationCount).show();
+                    } else {
+                        $("#navNotificationCount").hide();
+                    }
+                },
+                error: function () {
+                    console.log("Bildirimler yüklenirken hata oluştu.");
+                }
+            });
         }
 
         $(document).ready(function () {

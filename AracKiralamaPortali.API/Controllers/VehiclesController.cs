@@ -75,10 +75,10 @@ namespace AracKiralamaPortali.API.Controllers
                 .Include(v => v.Brand).Include(v => v.Reviews).Include(v => v.Images)
                 .Include(v => v.Reservations)
                 .ToListAsync();
-            
+
             var availableVehicles = vehicles.Where(v => v.IsActive && 
-                (v.VehicleStatus == "Available" || v.VehicleStatus == "Rented")).ToList()
-                .Where(v => !v.Reservations.Any(r => r.Status != "Cancelled" && 
+                (v.VehicleStatus != null && (v.VehicleStatus.ToLower() == "available" || v.VehicleStatus.ToLower() == "musait" || v.VehicleStatus.ToLower() == "müsait" || v.VehicleStatus.ToLower() == "rented"))).ToList()
+                .Where(v => !v.Reservations.Any(r => r.Status != "Cancelled" && r.Status != "Completed" && 
                     r.StartDate <= DateTime.Now && r.EndDate >= DateTime.Now))
                 .ToList();
             
@@ -118,9 +118,7 @@ namespace AracKiralamaPortali.API.Controllers
         }
 
         [HttpGet("filter")]
-        public async Task<IActionResult> Filter([FromQuery] string? fuelType, [FromQuery] string? transmissionType,
-            [FromQuery] decimal? minPrice, [FromQuery] decimal? maxPrice, [FromQuery] int? brandId,
-            [FromQuery] int? minPassenger)
+        public async Task<IActionResult> Filter([FromQuery] string? fuelType, [FromQuery] string? transmissionType, [FromQuery] decimal? minPrice, [FromQuery] decimal? maxPrice, [FromQuery] int? brandId, [FromQuery] int? minPassenger)
         {
             var query = GetPublicVehicleQuery()
                 .Include(v => v.Brand).Include(v => v.Reviews).Include(v => v.Images)
@@ -138,7 +136,8 @@ namespace AracKiralamaPortali.API.Controllers
             
             // Þu anda kirada olmayan araçlarý filtrele
             var availableVehicles = vehicles.Where(v => 
-                !v.Reservations.Any(r => r.Status != "Cancelled" && 
+                (v.VehicleStatus != null && (v.VehicleStatus.ToLower() == "available" || v.VehicleStatus.ToLower() == "musait" || v.VehicleStatus.ToLower() == "müsait" || v.VehicleStatus.ToLower() == "rented" || v.VehicleStatus == "msait")) &&
+                !v.Reservations.Any(r => r.Status != "Cancelled" && r.Status != "Completed" && 
                     r.StartDate <= DateTime.Now && r.EndDate >= DateTime.Now))
                 .ToList();
 

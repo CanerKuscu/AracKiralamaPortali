@@ -24,6 +24,7 @@ namespace AracKiralamaPortali.API.DTOs
         public string VehiclePlate { get; set; } = null!;
         public string BrandName { get; set; } = null!;
         public List<string> AdditionalServices { get; set; } = new();
+        public bool IsReturnConfirmed { get; set; }
     }
 
     public class ReservationCreateDto
@@ -37,9 +38,11 @@ namespace AracKiralamaPortali.API.DTOs
         [MaxLength(500, ErrorMessage = "Not alaný en fazla 500 karakter olabilir.")]
         public string? Notes { get; set; }
 
+        [Required(ErrorMessage = "Teslim alma konumu zorunludur.")]
         [MaxLength(200, ErrorMessage = "Teslim alma konumu en fazla 200 karakter olabilir.")]
         public string? PickupLocation { get; set; }
 
+        [Required(ErrorMessage = "Teslim býrakma konumu zorunludur.")]
         [MaxLength(200, ErrorMessage = "Teslim býrakma konumu en fazla 200 karakter olabilir.")]
         public string? DropoffLocation { get; set; }
 
@@ -63,3 +66,4 @@ namespace AracKiralamaPortali.API.DTOs
         public string? Notes { get; set; }
     }
 }
+

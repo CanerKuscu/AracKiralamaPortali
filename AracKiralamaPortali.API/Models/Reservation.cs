@@ -33,6 +33,8 @@ namespace AracKiralamaPortali.API.Models
         public double? CurrentLongitude { get; set; }
         public DateTime? LocationUpdatedAt { get; set; }
 
+        public bool IsReturnConfirmed { get; set; } = false;
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         [MaxLength(500)]
@@ -52,3 +54,4 @@ namespace AracKiralamaPortali.API.Models
         public ICollection<ReservationService> ReservationServices { get; set; } = new List<ReservationService>();
     }
 }
+

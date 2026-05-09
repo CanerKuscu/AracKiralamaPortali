@@ -86,7 +86,7 @@
         <div class="col-lg-5">
             <div class="vehicle-price-card shadow-sm mb-3">
                 <div class="vehicle-price" id="vPrice"></div>
-                <div class="vehicle-location text-muted"><i class="fas fa-location-dot"></i> Antalya / Muratpasa</div>
+                <div class="vehicle-location text-muted" id="vLocation"><i class="fas fa-location-dot"></i> Belirtilmemis</div>
             </div>
 
             <div class="vehicle-spec-card shadow-sm">
@@ -174,6 +174,9 @@
                 $("#vPassenger").text(v.passengerCapacity || "-");
                 $("#vLuggage").text(v.luggageCapacity || "-");
 
+                var locationText = (v.city && v.district) ? v.city + " / " + v.district : (v.city || v.district || "Belirtilmemis");
+                $("#vLocation").html('<i class="fas fa-location-dot"></i> ' + locationText);
+
                 $("#vPrice").html('<span>' + v.dailyPrice + ' TL</span><small>/ Gun</small>');
                 $("#vWeekly").text(v.weeklyPrice ? v.weeklyPrice + " TL" : "-");
                 $("#vMonthly").text(v.monthlyPrice ? v.monthlyPrice + " TL" : "-");
@@ -183,22 +186,21 @@
                 var statusColor = { "Available": "success", "Rented": "warning", "Maintenance": "info", "Damaged": "danger" };
                 $("#vStatus").html('<span class="badge bg-' + (statusColor[v.vehicleStatus] || "secondary") + '">' + (statusMap[v.vehicleStatus] || v.vehicleStatus) + '</span>');
 
-                if (v.vehicleStatus === "Available") {
-                    var currentUser = getUserInfo();
-                    var isOwner = currentUser && v.ownerId &&
-                        currentUser.id && currentUser.id.toLowerCase() === v.ownerId.toLowerCase();
+                renderGallery(v);
 
-                    if (!isOwner) {
+                var currentUser = getUserInfo();
+                if (v.vehicleStatus === "Available") {
+                    if (currentUser && currentUser.id === v.ownerId) {
                         $("#reservationAction").show();
-                        if (isLoggedIn()) {
-                            $("#reservationButton").attr("href", "/Reservation/Create?vehicleId=" + vehicleId);
-                        } else {
-                            $("#reservationButton").attr("href", "/Auth/Login");
-                        }
+                        $("#reservationAction").html('<div class="alert alert-info text-center fw-bold mb-0">Bu araç size aittir.</div>');
+                    } else {
+                        $("#reservationAction").show();
+                        $("#reservationButton").attr("href", "/Reservation/Create?vehicleId=" + v.id);
                     }
                 }
-
-                renderGallery(v);
+            },
+            error: function () {
+                alert("Araç bilgileri yüklenemedi.");
             }
         });
     });

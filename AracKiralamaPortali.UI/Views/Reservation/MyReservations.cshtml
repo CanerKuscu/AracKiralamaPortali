@@ -82,10 +82,11 @@
                         html += '<button class="btn btn-sm btn-success me-1" onclick="openPayment(' + r.id + ',' + r.totalPrice + ')"><i class="fas fa-credit-card"></i></button>';
                     }
                     if (r.status === "Confirmed") {
-                        html += '<button class="btn btn-sm btn-info me-1" onclick="shareLocation(' + r.id + ')"><i class="fas fa-location-dot"></i></button>';
+                        html += '<button class="btn btn-sm btn-info me-1" title="Konum Paylaþ" onclick="shareLocation(' + r.id + ')"><i class="fas fa-location-dot"></i></button>';
+                        html += '<button class="btn btn-sm btn-primary me-1" title="Teslim Et" onclick="requestReturn(' + r.id + ')"><i class="fas fa-car-side"></i></button>';
                     }
                     if (r.status === "Pending" || r.status === "Confirmed") {
-                        html += '<button class="btn btn-sm btn-danger" onclick="cancelReservation(' + r.id + ')"><i class="fas fa-times"></i></button>';
+                        html += '<button class="btn btn-sm btn-danger" title="Ýptal" onclick="cancelReservation(' + r.id + ')"><i class="fas fa-times"></i></button>';
                     }
                     html += "</td></tr>";
                 });
@@ -99,16 +100,33 @@
         if (s === "Pending") return '<span class="badge bg-warning text-dark">Beklemede</span>';
         if (s === "Confirmed") return '<span class="badge bg-success">Onaylandi</span>';
         if (s === "Cancelled") return '<span class="badge bg-danger">Iptal</span>';
+        if (s === "ReturnPending") return '<span class="badge bg-warning">Teslim Onayý Bekleniyor</span>';
+        if (s === "Completed") return '<span class="badge bg-info">Tamamlandý</span>';
         return '<span class="badge bg-secondary">' + s + '</span>';
     }
 
+    function requestReturn(id) {
+        appConfirm("Aracý teslim etmek istediðinize emin misiniz? (Araç sahibinin onayý gerekecektir)", function() {
+            $.ajax({
+                url: apiBaseUrl + "/Reservations/" + id + "/request-return",
+                type: "PUT",
+                success: function (res) { 
+                    showAlert(res.message || "Teslim talebi oluþturuldu.", "success"); 
+                    loadReservations(); 
+                },
+                error: function () { showAlert("Teslim talebi baþarýsýz.", "danger"); }
+            });
+        });
+    }
+
     function cancelReservation(id) {
-        if (!confirm("Rezervasyonu iptal etmek istiyor musunuz?")) return;
-        $.ajax({
-            url: apiBaseUrl + "/Reservations/" + id + "/cancel",
-            type: "PUT",
-            success: function () { showAlert("Rezervasyon iptal edildi.", "success"); loadReservations(); },
-            error: function () { showAlert("Iptal basarisiz.", "danger"); }
+        appConfirm("Rezervasyonu iptal etmek istiyor musunuz?", function() {
+            $.ajax({
+                url: apiBaseUrl + "/Reservations/" + id + "/cancel",
+                type: "PUT",
+                success: function () { showAlert("Rezervasyon iptal edildi.", "success"); loadReservations(); },
+                error: function () { showAlert("Iptal basarisiz.", "danger"); }
+            });
         });
     }
 

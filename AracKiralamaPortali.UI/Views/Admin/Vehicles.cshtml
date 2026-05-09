@@ -36,17 +36,25 @@
                             <input type="text" class="form-control" id="vBrandName" placeholder="Marka girin" required />
                             <input type="hidden" id="vBrandId" />
                         </div>
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-4 mb-3">
                             <label class="form-label">Model</label>
                             <input type="text" class="form-control" id="vModel" required />
                         </div>
-                        <div class="col-md-3 mb-3">
+                        <div class="col-md-4 mb-3">
                             <label class="form-label">Yil</label>
                             <input type="number" class="form-control" id="vYear" required />
                         </div>
-                        <div class="col-md-3 mb-3">
+                        <div class="col-md-4 mb-3">
                             <label class="form-label">Renk</label>
                             <input type="text" class="form-control" id="vColor" required />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Sehir</label>
+                            <input type="text" class="form-control" id="vCity" placeholder="örn. Istanbul" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Ilce</label>
+                            <input type="text" class="form-control" id="vDistrict" placeholder="örn. Kadikoy" />
                         </div>
                         <div class="col-md-4 mb-3">
                             <label class="form-label">Gunluk Fiyat</label>
@@ -205,6 +213,8 @@
         $("#vehicleForm")[0].reset();
         $("#vBrandName").val("");
         $("#vBrandId").val("");
+        $("#vCity").val("");
+        $("#vDistrict").val("");
         $("#vImageFiles").val("");
         $("#uploadedImagesDiv").hide();
         $("#uploadedImagesList").html("");
@@ -234,6 +244,8 @@
                 $("#vMileage").val(v.mileage);
                 $("#vPassengerCapacity").val(v.passengerCapacity);
                 $("#vLuggageCapacity").val(v.luggageCapacity);
+                $("#vCity").val(v.city);
+                $("#vDistrict").val(v.district);
                 $("#vDescription").val(v.description);
                 $("#vVehicleStatus").val(v.vehicleStatus);
                 $("#vIsActive").prop("checked", v.isActive);
@@ -272,7 +284,8 @@
             monthlyPrice: parseFloat($("#vMonthlyPrice").val()) || null, description: $("#vDescription").val(),
             imageUrl: null, fuelType: $("#vFuelType").val(), transmissionType: $("#vTransmissionType").val(),
             mileage: parseInt($("#vMileage").val()), passengerCapacity: parseInt($("#vPassengerCapacity").val()),
-            luggageCapacity: parseInt($("#vLuggageCapacity").val()), brandId: parseInt($("#vBrandId").val()) || 0, brandName: brandName
+            luggageCapacity: parseInt($("#vLuggageCapacity").val()), brandId: parseInt($("#vBrandId").val()) || 0, brandName: brandName,
+            city: $("#vCity").val(), district: $("#vDistrict").val()
         };
 
         if (id) {

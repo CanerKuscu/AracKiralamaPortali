@@ -1,0 +1,89 @@
+@{
+    ViewData["Title"] = "Bildirimler";
+}
+
+<h2><i class="fas fa-bell"></i> Bildirimler (Teslim Onayý Bekleyenler)</h2>
+
+<div class="table-responsive mt-3">
+    <table class="table table-striped table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th>Plaka</th>
+                <th>Marka</th>
+                <th>Baþlangýç</th>
+                <th>Bitiþ</th>
+                <th>Bildirim</th>
+                <th>Ýþlem</th>
+            </tr>
+        </thead>
+        <tbody id="notificationList"></tbody>
+    </table>
+    <div id="noNotificationMsg" class="alert alert-info d-none">Mevcut bildiriminiz bulunmamaktadýr.</div>
+</div>
+
+@section Scripts {
+<script>
+    $(document).ready(function () {
+        if (!isLoggedIn()) { window.location.href = "/Auth/Login"; return; }
+        loadNotifications();
+    });
+
+    function loadNotifications() {
+        var urlToCall = isAdmin() ? (apiBaseUrl + "/Reservations") : (apiBaseUrl + "/Reservations/owner-reservations");
+        $.ajax({
+            url: urlToCall,
+            type: "GET",
+            success: function (data) {
+                var html = "";
+                var count = 0;
+                $.each(data, function (i, r) {
+                    if (r.status === "ReturnPending" && !r.isReturnConfirmed) {
+                        count++;
+                        html += "<tr>";
+                        html += "<td>" + r.vehiclePlate + "</td>";
+                        html += "<td>" + (r.brandName || "-") + "</td>";
+                        html += "<td>" + new Date(r.startDate).toLocaleDateString("tr-TR") + "</td>";
+                        html += "<td>" + new Date(r.endDate).toLocaleDateString("tr-TR") + "</td>";
+                        html += "<td>Teslim talebi var! Onayýnýz bekleniyor.</td>";
+                        html += "<td>";
+                        html += '<button class="btn btn-sm btn-success" onclick="confirmReturn(' + r.id + ')"><i class="fas fa-check"></i> Teslim Onayla</button>';
+                        html += "</td>";
+                        html += "</tr>";
+                    }
+                });
+
+                if (count > 0) {
+                    $("#notificationList").html(html);
+                    $("#noNotificationMsg").addClass("d-none");
+                    $(".table").removeClass("d-none");
+                } else {
+                    $("#notificationList").html("");
+                    $("#noNotificationMsg").removeClass("d-none");
+                    $(".table").addClass("d-none");
+                }
+            },
+            error: function () {
+                console.log("Bildirimler yüklenirken hata oluþtu.");
+            }
+        });
+    }
+
+    function confirmReturn(id) {
+        appConfirm("Aracýn teslimatýný onaylamak istediðinize emin misiniz?", function() {
+            $.ajax({
+                url: apiBaseUrl + "/Reservations/" + id + "/confirm-return",
+                type: "PUT",
+                success: function (res) {
+                    appAlert(res.message || "Araç teslimi baþarýyla onaylandý.", "success");
+                    loadNotifications();
+                    checkReturnNotifications(); // update badge
+                },
+                error: function (xhr) {
+                    var msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : "Hata oluþtu.";
+                    appAlert(msg, "error");
+                }
+            });
+        });
+    }
+</script>
+}

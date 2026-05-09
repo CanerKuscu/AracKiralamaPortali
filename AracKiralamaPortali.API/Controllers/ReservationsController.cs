@@ -28,7 +28,8 @@ namespace AracKiralamaPortali.API.Controllers
             LocationUpdatedAt = r.LocationUpdatedAt, CreatedAt = r.CreatedAt, Notes = r.Notes,
             AppUserId = r.AppUserId, UserFullName = r.AppUser.FullName, VehicleId = r.VehicleId,
             VehiclePlate = r.Vehicle.Plate, BrandName = r.Vehicle.Brand.Name,
-            AdditionalServices = [.. r.ReservationServices.Select(rs => rs.AdditionalService.Name)]
+            AdditionalServices = [.. r.ReservationServices.Select(rs => rs.AdditionalService.Name)],
+            IsReturnConfirmed = r.IsReturnConfirmed
         };
 
         [Authorize(Roles = "Admin")]
@@ -50,6 +51,17 @@ namespace AracKiralamaPortali.API.Controllers
                 .Include(r => r.Vehicle).ThenInclude(v => v.Brand).Include(r => r.AppUser)
                 .Include(r => r.ReservationServices).ThenInclude(rs => rs.AdditionalService)
                 .Where(r => r.AppUserId == userId).ToListAsync();
+            return Ok(reservations.Select(MapToDto));
+        }
+
+        [HttpGet("owner-reservations")]
+        public async Task<IActionResult> GetOwnerReservations()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var reservations = await reservationRepository.GetQueryable()
+                .Include(r => r.Vehicle).ThenInclude(v => v.Brand).Include(r => r.AppUser)
+                .Include(r => r.ReservationServices).ThenInclude(rs => rs.AdditionalService)
+                .Where(r => r.Vehicle.OwnerId == userId).ToListAsync();
             return Ok(reservations.Select(MapToDto));
         }
 
@@ -76,7 +88,7 @@ namespace AracKiralamaPortali.API.Controllers
             var endDate = dto.EndDate.Date;
 
             if (startDate < DateTime.Today)
-                return BadRequest(new { message = "Baslangic tarihi bugunden once olamaz." });
+                return BadRequest(new { message = "Baslangic tarihi bugunden önce olamaz." });
 
             if (endDate <= startDate)
                 return BadRequest(new { message = "Bitis tarihi baslangic tarihinden sonra olmalidir." });
@@ -212,7 +224,69 @@ namespace AracKiralamaPortali.API.Controllers
             reservation.Status = "Cancelled";
             reservationRepository.Update(reservation);
             await reservationRepository.SaveChangesAsync();
-            return Ok(new { message = "Rezervasyon baþarýyla iptal edildi." });
+            return Ok(new { message = "Rezervasyon baaryla iptal edildi." });
+        }
+
+        [HttpPut("{id}/request-return")]
+        public async Task<IActionResult> RequestReturn(int id)
+        {
+            var reservation = await reservationRepository.GetByIdAsync(id);
+            if (reservation == null) return NotFound();
+
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (reservation.AppUserId != userId) return Forbid();
+
+            if (reservation.Status != "Confirmed")
+            {
+                return BadRequest(new { message = "Sadece onaylý ve devam eden rezervasyonlar için teslim talebinde bulunabilirsiniz." });
+            }
+
+            reservation.Status = "ReturnPending";
+            reservationRepository.Update(reservation);
+            await reservationRepository.SaveChangesAsync();
+
+            return Ok(new { message = "Araç teslim etme talebiniz alýndý. Araç sahibinin onayý bekleniyor." });
+        }
+
+        [HttpPut("{id}/confirm-return")]
+        public async Task<IActionResult> ConfirmReturn(int id)
+        {
+            var reservation = await reservationRepository.GetQueryable()
+                .Include(r => r.Vehicle)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (reservation == null) return NotFound();
+
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            // Sadece araba sahibi veya Admin iade onaylayabilir
+            if (reservation.Vehicle.OwnerId != userId && !User.IsInRole("Admin"))
+                return Forbid();
+
+            if (reservation.Status != "Confirmed" && reservation.Status != "ReturnPending" && reservation.Status != "Completed")
+            {
+                return BadRequest(new { message = "Sadece bitmiþ veya onaylý rezervasyonlar için iade onaylanabilir." });
+            }
+
+            if (reservation.IsReturnConfirmed)
+            {
+                return BadRequest(new { message = "Araç iadesi zaten onaylanmýþ." });
+            }
+
+            // Ýade onaylandý olarak iþaretle ve durumu Completed yap
+            reservation.IsReturnConfirmed = true;
+            reservation.Status = "Completed";
+            reservationRepository.Update(reservation);
+
+            // Aracý tekrar müsait duruma getir
+            reservation.Vehicle.IsActive = true;
+            reservation.Vehicle.VehicleStatus = "Available"; // Opsiyonel, eðer durum alanýnýz varsa
+            vehicleRepository.Update(reservation.Vehicle);
+
+            await reservationRepository.SaveChangesAsync();
+            await vehicleRepository.SaveChangesAsync();
+
+            return Ok(new { message = "Ara iadesi baaryla onayland ve ara tekrar aktif hale getirildi." });
         }
     }
 }
+

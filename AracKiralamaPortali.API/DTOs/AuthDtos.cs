@@ -96,4 +96,10 @@ namespace AracKiralamaPortali.API.DTOs
         [Required(ErrorMessage = "Rol alaný zorunludur.")]
         public string RoleName { get; set; } = null!;
     }
+
+    public class DeleteAccountDto
+    {
+        [Required(ErrorMessage = "Þifre alaný zorunludur.")]
+        public string Password { get; set; } = null!;
+    }
 }

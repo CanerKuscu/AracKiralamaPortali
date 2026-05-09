@@ -273,14 +273,9 @@
                 simulateAndCreatePayment(res.id, parseFloat(res.totalPrice))
                     .done(function () {
                         showAlert("Rezervasyon ve odeme basarili! Toplam: " + res.totalPrice + " TL, Depozito: " + res.depositAmount + " TL", "success");
-                        $("#reservationForm")[0].reset();
-                        var today = new Date().toISOString().split('T')[0];
-                        var tomorrow = addDays(today, 1);
-                        $("#startDate").val(today).attr("min", today);
-                        $("#endDate").val(tomorrow).attr("min", tomorrow);
-                        $("#paymentMethod").val("Kredi Karti");
-                        toggleCardFields();
-                        calcTotal();
+                        setTimeout(function() {
+                            window.location.href = "/Reservation/MyReservations";
+                        }, 1500);
                     })
                     .fail(function (xhr) {
                         var msg = "Rezervasyon olustu ama odeme basarisiz. Rezervasyon beklemede kaldi.";
@@ -294,7 +289,26 @@
             },
             error: function (xhr) {
                 var msg = "Rezervasyon olusturulamadi.";
-                if (xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
+                $(".form-control, .form-select").removeClass("is-invalid"); // Hatalarý temizle
+                if (xhr.responseJSON) {
+                    if (xhr.responseJSON.message) {
+                        msg = xhr.responseJSON.message;
+                    } else if (xhr.responseJSON.errors) {
+                        var errors = xhr.responseJSON.errors;
+                        var errorList = [];
+                        for (var key in errors) {
+                            if (errors.hasOwnProperty(key)) {
+                                errorList.push(errors[key].join(", "));
+                                // API'den gelen anahtarýn ilk harfini küçülterek ID eþleþmesi yap (Örn: "PickupLocation" -> "pickupLocation")
+                                var fieldId = key.charAt(0).toLowerCase() + key.slice(1);
+                                $("#" + fieldId).addClass("is-invalid");
+                            }
+                        }
+                        if (errorList.length > 0) {
+                            msg = errorList.join("<br/>");
+                        }
+                    }
+                }
                 showAlert(msg, "danger");
                 reservationInProgress = false;
                 submitButton.prop("disabled", false).text("Rezervasyon Yap");
