@@ -18,14 +18,21 @@
         </thead>
         <tbody id="notificationList"></tbody>
     </table>
-    <div id="noNotificationMsg" class="alert alert-info d-none">Mevcut bildiriminiz bulunmamaktadýr.</div>
+    <div id="noNotificationMsg" class="alert alert-info d-none">Teslim onayý bekleyen bildiriminiz bulunmamaktadýr.</div>
 </div>
+
+<h4 class="mt-4"><i class="fas fa-star"></i> Araç Sahibi Bildirimleri</h4>
+<div id="ownerNotificationCard" class="card mt-3 d-none">
+    <div class="list-group list-group-flush" id="ownerNotificationList"></div>
+</div>
+<div id="noOwnerNotificationMsg" class="alert alert-info d-none mt-3">Mevcut araç sahibi bildiriminiz bulunmamaktadýr.</div>
 
 @section Scripts {
 <script>
     $(document).ready(function () {
         if (!isLoggedIn()) { window.location.href = "/Auth/Login"; return; }
         loadNotifications();
+        loadOwnerNotifications();
     });
 
     function loadNotifications() {
@@ -83,6 +90,52 @@
                     appAlert(msg, "error");
                 }
             });
+        });
+    }
+
+    function loadOwnerNotifications() {
+        $.ajax({
+            url: apiBaseUrl + "/Vehicles/owner-notifications",
+            type: "GET",
+            success: function (data) {
+                var filteredData = (data || []).filter(function (n) {
+                    return n.type !== "Question" || !n.isAnswered;
+                });
+                if (filteredData.length === 0) {
+                    $("#ownerNotificationList").html("");
+                    $("#ownerNotificationCard").addClass("d-none");
+                    $("#noOwnerNotificationMsg").removeClass("d-none");
+                    return;
+                }
+
+                var html = "";
+                $.each(filteredData, function (i, n) {
+                    var date = new Date(n.createdAt).toLocaleDateString("tr-TR");
+                    var isQuestion = n.type === "Question";
+                    var icon = isQuestion ? "fa-question-circle text-primary" : "fa-star text-warning";
+                    var title = isQuestion ? "Yeni soru" : "Yeni yorum";
+                    var message = n.message ? n.message : "-";
+                    var ratingText = (!isQuestion && n.rating) ? '<div class="text-warning small">Puan: ' + n.rating + '/5</div>' : "";
+                    var answerText = (isQuestion && !n.isAnswered) ? '<div class="text-muted small fst-italic">Cevap bekleniyor.</div>' : "";
+
+                    html += '<a class="list-group-item list-group-item-action" href="/Vehicle/Detail?id=' + n.vehicleId + '">';
+                    html += '  <div class="d-flex justify-content-between">';
+                    html += '    <div><i class="fas ' + icon + '"></i> ' + title + ' - ' + n.userFullName + '</div>';
+                    html += '    <small class="text-muted">' + date + '</small>';
+                    html += '  </div>';
+                    html += '  <div class="small text-muted">' + n.brandName + ' / ' + n.vehiclePlate + '</div>';
+                    html += '  <div class="small">' + message + '</div>';
+                    html += ratingText + answerText;
+                    html += '</a>';
+                });
+
+                $("#ownerNotificationList").html(html);
+                $("#ownerNotificationCard").removeClass("d-none");
+                $("#noOwnerNotificationMsg").addClass("d-none");
+            },
+            error: function () {
+                console.log("Ara? bildirimleri y?klenirken hata olu?tu.");
+            }
         });
     }
 </script>

@@ -19,6 +19,7 @@ namespace AracKiralamaPortali.API.Data
         public DbSet<Maintenance> Maintenances { get; set; }
         public DbSet<Review> Reviews { get; set; }
         public DbSet<VehicleImage> VehicleImages { get; set; }
+        public DbSet<VehicleQuestion> VehicleQuestions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -94,6 +95,18 @@ namespace AracKiralamaPortali.API.Data
                 .HasOne(vi => vi.Vehicle)
                 .WithMany(v => v.Images)
                 .HasForeignKey(vi => vi.VehicleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<VehicleQuestion>()
+                .HasOne(vq => vq.Vehicle)
+                .WithMany()
+                .HasForeignKey(vq => vq.VehicleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<VehicleQuestion>()
+                .HasOne(vq => vq.User)
+                .WithMany()
+                .HasForeignKey(vq => vq.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

@@ -119,5 +119,31 @@ namespace AracKiralamaPortali.API.DTOs
         public DateTime? InspectionExpiryDate { get; set; }
         public bool HasAccidentHistory { get; set; }
     }
+
+    public class VehicleQuestionDto
+    {
+        public int Id { get; set; }
+        public int VehicleId { get; set; }
+        public string UserId { get; set; } = null!;
+        public string UserName { get; set; } = null!;
+        public string Question { get; set; } = null!;
+        public string? Answer { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime? AnsweredAt { get; set; }
+        public bool IsAnswered { get; set; }
+    }
+
+    public class VehicleQuestionCreateDto
+    {
+        public int VehicleId { get; set; }
+        [Required, MaxLength(500)]
+        public string Question { get; set; } = null!;
+    }
+
+    public class VehicleQuestionAnswerDto
+    {
+        [Required, MaxLength(1000)]
+        public string Answer { get; set; } = null!;
+    }
 }
 

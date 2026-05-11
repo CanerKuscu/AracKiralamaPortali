@@ -94,6 +94,11 @@
         function setToken(t) { localStorage.setItem("token", t); }
         function removeToken() { localStorage.removeItem("token"); }
 
+        function getAuthHeaders() {
+            var t = getToken();
+            return t ? { "Authorization": "Bearer " + t } : {};
+        }
+
         function parseJwt(token) {
             var b = token.split('.')[1];
             var s = atob(b.replace(/-/g, '+').replace(/_/g, '/'));
@@ -193,25 +198,49 @@
         function checkReturnNotifications() {
             // Sadece CarOwner ve Adminler teslim bildirimlerini görebilir
             var urlToCall = isAdmin() ? (apiBaseUrl + "/Reservations") : (apiBaseUrl + "/Reservations/owner-reservations");
+            var returnCount = 0;
+            var ownerCount = 0;
+            var pending = 2;
+
+            function updateBadge() {
+                pending--;
+                if (pending > 0) return;
+                var totalCount = returnCount + ownerCount;
+                if (totalCount > 0) {
+                    $("#navNotificationCount").text(totalCount).show();
+                } else {
+                    $("#navNotificationCount").hide();
+                }
+            }
+
             $.ajax({
                 url: urlToCall,
                 type: "GET",
                 success: function (data) {
-                    var notificationCount = 0;
                     $.each(data, function (i, r) {
                         if (r.status === "ReturnPending" && !r.isReturnConfirmed) {
-                            notificationCount++;
+                            returnCount++;
                         }
                     });
-
-                    if (notificationCount > 0) {
-                        $("#navNotificationCount").text(notificationCount).show();
-                    } else {
-                        $("#navNotificationCount").hide();
-                    }
+                    updateBadge();
                 },
                 error: function () {
                     console.log("Bildirimler yüklenirken hata oluştu.");
+                    updateBadge();
+                }
+            });
+
+            $.ajax({
+                url: apiBaseUrl + "/Vehicles/owner-notifications",
+                type: "GET",
+                success: function (data) {
+                    ownerCount = (data || []).filter(function (n) {
+                        return n.type === "Question" && !n.isAnswered;
+                    }).length;
+                    updateBadge();
+                },
+                error: function () {
+                    updateBadge();
                 }
             });
         }

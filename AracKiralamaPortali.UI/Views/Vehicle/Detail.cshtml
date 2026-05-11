@@ -67,6 +67,12 @@
         width: 42%;
         color: #202020;
     }
+
+    .vehicle-detail-page .scroll-box {
+        max-height: 260px;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
 </style>
 
 <div class="vehicle-detail-page" id="vehicleDetail">
@@ -116,11 +122,78 @@
             </div>
         </div>
     </div>
+
+    <!-- Reviews and Questions Section -->
+    <div class="row g-4 mt-2">
+        <!-- Questions Section -->
+        <div class="col-lg-6">
+            <div class="vehicle-spec-card shadow-sm h-100">
+                <h4 class="vehicle-title"><i class="fas fa-question-circle text-primary"></i> Soru & Cevap</h4>
+                <div id="questionsList" class="mb-3 scroll-box">
+                    <div class="text-muted text-center py-3">Yukleniyor...</div>
+                </div>
+                
+                <div class="card bg-light border-0" id="askQuestionBox" style="display:none;">
+                    <div class="card-body">
+                        <h6 class="fw-bold"><i class="fas fa-edit"></i> Soru Sor</h6>
+                        <textarea id="txtQuestion" class="form-control mb-2" rows="2" placeholder="Arac ile ilgili sormak istediginiz bir sey var mi?"></textarea>
+                        <div id="questionFeedback" class="alert alert-info d-none mb-2"></div>
+                        <button class="btn btn-primary btn-sm" id="btnAskQuestion">Gonder</button>
+                    </div>
+                </div>
+                <div id="loginToAsk" class="alert alert-warning text-center mt-3" style="display:none;">
+                    Soru sormak icin <a href="/Auth/Login">giris</a> yapmalisiniz.
+                </div>
+                <div id="ownerCannotAsk" class="alert alert-info text-center mt-3" style="display:none;">
+                    Arac sahibi kendi aracina soru soramaz.
+                </div>
+            </div>
+        </div>
+
+        <!-- Reviews Section -->
+        <div class="col-lg-6">
+            <div class="vehicle-spec-card shadow-sm h-100">
+                <h4 class="vehicle-title"><i class="fas fa-star text-warning"></i> Degerlendirmeler</h4>
+                <div class="d-flex align-items-center mb-3">
+                    <h2 class="mb-0 me-3" id="avgRating">0.0</h2>
+                    <div>
+                        <div id="avgStars" class="text-warning fs-5"></div>
+                        <div class="text-muted small"><span id="totalReviews">0</span> Yorum</div>
+                    </div>
+                </div>
+                <hr />
+                <div id="reviewsList" class="mb-3 scroll-box">
+                    <div class="text-muted text-center py-3">Yukleniyor...</div>
+                </div>
+                
+                <div class="card bg-light border-0 mt-3" id="addReviewBox" style="display:none;">
+                    <div class="card-body">
+                        <h6 class="fw-bold"><i class="fas fa-star-half-alt"></i> Puan Ver & Yorum Yap</h6>
+                        <div class="mb-2">
+                            <span class="text-muted small me-2">Puan:</span>
+                            <div class="rating-stars d-inline-block text-warning" style="cursor:pointer;" id="userRating">
+                                <i class="far fa-star" data-rating="1"></i>
+                                <i class="far fa-star" data-rating="2"></i>
+                                <i class="far fa-star" data-rating="3"></i>
+                                <i class="far fa-star" data-rating="4"></i>
+                                <i class="far fa-star" data-rating="5"></i>
+                            </div>
+                        </div>
+                        <input type="hidden" id="hdnRating" value="0" />
+                        <textarea id="txtReview" class="form-control mb-2" rows="2" placeholder="Araci nasil buldunuz?"></textarea>
+                        <div id="reviewFeedback" class="alert d-none mb-2"></div>
+                        <button class="btn btn-warning btn-sm fw-bold" id="btnSubmitReview">Yorumu Gonder</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 @section Scripts {
 <script>
     var vehicleId = @vehicleId;
+    var currentOwnerId = null;
 
     function setMainImage(url) {
         if (!url) {
@@ -189,20 +262,331 @@
                 renderGallery(v);
 
                 var currentUser = getUserInfo();
+                currentOwnerId = v.ownerId;
                 if (v.vehicleStatus === "Available") {
                     if (currentUser && currentUser.id === v.ownerId) {
                         $("#reservationAction").show();
-                        $("#reservationAction").html('<div class="alert alert-info text-center fw-bold mb-0">Bu araç size aittir.</div>');
+                        $("#reservationAction").html('<div class="alert alert-info text-center fw-bold mb-0">Bu arac size aittir.</div>');
                     } else {
                         $("#reservationAction").show();
                         $("#reservationButton").attr("href", "/Reservation/Create?vehicleId=" + v.id);
                     }
                 }
+                
+                loadReviews();
+                loadQuestions(currentUser ? currentUser.id : null, v.ownerId);
+
+                if (currentUser) {
+                    if (currentUser.id === v.ownerId) {
+                        $("#ownerCannotAsk").show();
+                    } else {
+                        $("#askQuestionBox").show();
+                    }
+
+                    $.ajax({
+                        url: apiBaseUrl + "/Vehicles/" + vehicleId + "/can-review",
+                        type: "GET",
+                        headers: getAuthHeaders(),
+                        success: function (res) {
+                            if (res.canReview) {
+                                $("#addReviewBox").show();
+                            } else {
+                                $("#addReviewBox").hide();
+                                // Optional message instead of the box
+                                if ($("#reviewsList .alert-info").length === 0) {
+                                    $('<div class="alert alert-info text-center mt-3 small">Sadece bu araci kiralayanlar degerlendirme yapabilir.</div>').insertAfter("#addReviewBox");
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    $("#loginToAsk").show();
+                }
             },
             error: function () {
-                alert("Araç bilgileri yüklenemedi.");
+                $("#vehicleDetail").html('<div class="alert alert-danger">Arac bilgileri yuklenemedi.</div>');
+            }
+        });
+        // ------------------------------------------
+
+        // Rating Stars Logic
+        $("#userRating i").hover(function() {
+            var val = parseInt($(this).data("rating"));
+            $("#userRating i").each(function(index) {
+                if (index < val) {
+                    $(this).removeClass("far").addClass("fas");
+                } else {
+                    $(this).removeClass("fas").addClass("far");
+                }
+            });
+        }, function() {
+            var val = parseInt($("#hdnRating").val());
+            $("#userRating i").each(function(index) {
+                if (index < val) {
+                    $(this).removeClass("far").addClass("fas");
+                } else {
+                    $(this).removeClass("fas").addClass("far");
+                }
+            });
+        });
+
+        $("#userRating i").click(function() {
+            var val = parseInt($(this).data("rating"));
+            $("#hdnRating").val(val);
+        });
+
+        // Submit Review
+        $("#btnSubmitReview").click(function() {
+            var rating = parseInt($("#hdnRating").val());
+            var comment = $("#txtReview").val().trim();
+            if (rating < 1) {
+                setReviewFeedback("Lutfen bir puan secin!", "alert-danger");
+                return;
+            }
+
+            setReviewFeedback(null);
+
+            $.ajax({
+                url: apiBaseUrl + "/Vehicles/" + vehicleId + "/reviews",
+                type: "POST",
+                contentType: "application/json",
+                headers: getAuthHeaders(),
+                data: JSON.stringify({ rating: rating, comment: comment, vehicleId: vehicleId }),
+                success: function(res) {
+                    if (res.message) {
+                        setReviewFeedback(res.message, "alert-success");
+                    }
+                    $("#txtReview").val("");
+                    $("#hdnRating").val("0");
+                    $("#userRating i").removeClass("fas").addClass("far");
+                    loadReviews();
+                },
+                error: function(err) {
+                    if (err.responseJSON && err.responseJSON.message) {
+                        setReviewFeedback(err.responseJSON.message, "alert-danger");
+                        if(err.responseJSON.message.indexOf("sadece kiraladiginiz") > -1) {
+                            $("#addReviewBox").hide();
+                        }
+                    } else {
+                        setReviewFeedback("Yorum eklenirken hata olustu.", "alert-danger");
+                    }
+                }
+            });
+        });
+    });
+
+    // Ask Question (Moved to event delegation)
+    function setQuestionFeedback(message, type) {
+        var feedback = $("#questionFeedback");
+        if (!message) {
+            feedback.addClass("d-none").removeClass("alert-success alert-danger alert-info").text("");
+            return;
+        }
+        feedback
+            .removeClass("d-none alert-success alert-danger alert-info")
+            .addClass(type || "alert-info")
+            .text(message);
+    }
+
+    function setReviewFeedback(message, type) {
+        var feedback = $("#reviewFeedback");
+        if (!message) {
+            feedback.addClass("d-none").removeClass("alert-success alert-danger alert-info").text("");
+            return;
+        }
+        feedback
+            .removeClass("d-none alert-success alert-danger alert-info")
+            .addClass(type || "alert-info")
+            .text(message);
+    }
+
+    $(document).on("click", "#btnAskQuestion", function(e) {
+        e.preventDefault();
+        var q = $("#txtQuestion").val().trim();
+        if (!q) {
+            setQuestionFeedback("Lutfen bir soru yazin!", "alert-danger");
+            return;
+        }
+
+        var user = getUserInfo();
+        if(!user) {
+            setQuestionFeedback("Soru sormak icin giris yapmalisiniz.", "alert-danger");
+            return;
+        }
+        if (currentOwnerId && user.id === currentOwnerId) {
+            setQuestionFeedback("Arac sahibi kendi aracina soru soramaz.", "alert-danger");
+            return;
+        }
+
+        var btn = $(this);
+        btn.prop("disabled", true).text("Gonderiliyor...");
+        setQuestionFeedback(null);
+
+        $.ajax({
+            url: apiBaseUrl + "/Vehicles/" + vehicleId + "/questions",
+            type: "POST",
+            contentType: "application/json",
+            headers: getAuthHeaders(),
+            data: JSON.stringify({ question: q, vehicleId: vehicleId })
+        })
+        .done(function(res) {
+            if (res && res.message) {
+                setQuestionFeedback(res.message, "alert-success");
+            }
+            $("#txtQuestion").val("");
+            // Reload questions
+            $.ajax({
+                url: apiBaseUrl + "/Vehicles/" + vehicleId,
+                type: "GET"
+            }).done(function(v) {
+                loadQuestions(user.id || user.Id || user.UserId, v.ownerId);
+            });
+        })
+        .fail(function(err) {
+            console.error(err);
+            if (err.responseJSON && err.responseJSON.message) {
+                setQuestionFeedback(err.responseJSON.message, "alert-danger");
+            } else if (err.responseText) {
+                setQuestionFeedback("Hata: " + err.responseText, "alert-danger");
+            } else {
+                setQuestionFeedback("Soru sorulurken hata olustu.", "alert-danger");
+            }
+        })
+        .always(function() {
+            btn.prop("disabled", false).text("Gonder");
+        });
+    });
+
+    $(document).on("click", ".btn-answer-q", function() {
+        var qId = $(this).data("id");
+        var val = $("#txtAnswer_" + qId).val().trim();
+        if(!val) {
+            setAnswerFeedback(qId, "Cevap bos birakilamaz!", "alert-danger");
+            return;
+        }
+        setAnswerFeedback(qId, null);
+
+        $.ajax({
+            url: apiBaseUrl + "/Vehicles/" + vehicleId + "/questions/" + qId + "/answer",
+            type: "POST",
+            contentType: "application/json",
+            headers: getAuthHeaders(),
+            data: JSON.stringify({ answer: val }),
+            success: function() {
+                setAnswerFeedback(qId, "Cevap gonderildi.", "alert-success");
+                loadQuestions(getUserInfo() ? getUserInfo().id : null, currentOwnerId);
+            },
+            error: function(err) {
+                var message = "Hata olustu.";
+                if (err.responseJSON && err.responseJSON.message) {
+                    message = err.responseJSON.message;
+                }
+                setAnswerFeedback(qId, message, "alert-danger");
             }
         });
     });
+
+    function setAnswerFeedback(questionId, message, type) {
+        var feedback = $("#answerFeedback_" + questionId);
+        if (!feedback.length) {
+            return;
+        }
+        if (!message) {
+            feedback.addClass("d-none").removeClass("alert-success alert-danger alert-info").text("");
+            return;
+        }
+        feedback
+            .removeClass("d-none alert-success alert-danger alert-info")
+            .addClass(type || "alert-info")
+            .text(message);
+    }
+
+    function getStarsHtml(rating) {
+        var html = "";
+        for (var i = 1; i <= 5; i++) {
+            if (i <= rating) html += '<i class="fas fa-star"></i>';
+            else html += '<i class="far fa-star"></i>';
+        }
+        return html;
+    }
+
+    function loadReviews() {
+        $.ajax({
+            url: apiBaseUrl + "/Vehicles/" + vehicleId + "/reviews",
+            type: "GET",
+            success: function(reviews) {
+                if (!reviews || reviews.length === 0) {
+                    $("#reviewsList").html('<div class="text-muted small">Henuz yorum yapilmamis.</div>');
+                    $("#avgRating").text("0.0");
+                    $("#totalReviews").text("0");
+                    $("#avgStars").html(getStarsHtml(0));
+                    return;
+                }
+
+                var total = 0;
+                var html = "";
+                $.each(reviews, function(i, r) {
+                    total += r.rating;
+                    var date = new Date(r.createdAt).toLocaleDateString("tr-TR");
+                    html += '<div class="review-item mb-3 pb-2 border-bottom">';
+                    html += '<div class="d-flex justify-content-between">';
+                    html += '<strong>' + r.userFullName + '</strong>';
+                    html += '<small class="text-muted">' + date + '</small>';
+                    html += '</div>';
+                    html += '<div class="text-warning small mb-1">' + getStarsHtml(r.rating) + '</div>';
+                    html += '<div class="small">' + (r.comment || "") + '</div>';
+                    html += '</div>';
+                });
+                $("#reviewsList").html(html);
+
+                var avg = (total / reviews.length).toFixed(1);
+                $("#avgRating").text(avg);
+                $("#totalReviews").text(reviews.length);
+                $("#avgStars").html(getStarsHtml(Math.round(avg)));
+            }
+        });
+    }
+
+    function loadQuestions(currentUserId, ownerId) {
+        $.ajax({
+            url: apiBaseUrl + "/Vehicles/" + vehicleId + "/questions",
+            type: "GET",
+            success: function(questions) {
+                if (!questions || questions.length === 0) {
+                    $("#questionsList").html('<div class="text-muted small">Henuz soru sorulmamis. Ilk soran siz olun!</div>');
+                    return;
+                }
+
+                var html = "";
+                $.each(questions, function(i, q) {
+                    var date = new Date(q.createdAt).toLocaleDateString("tr-TR");
+                    html += '<div class="mb-3 p-2 bg-light rounded">';
+                    html += '  <div class="d-flex justify-content-between text-muted small mb-1">';
+                    html += '    <span><strong>Soru:</strong> ' + q.userName + '</span> <span>' + date + '</span>';
+                    html += '  </div>';
+                    html += '  <div class="mb-2">' + q.question + '</div>';
+                    
+                    if (q.isAnswered) {
+                        var ansDate = q.answeredAt ? new Date(q.answeredAt).toLocaleDateString("tr-TR") : "";
+                        html += '  <div class="ps-3 border-start border-3 border-primary">';
+                        html += '    <div class="d-flex justify-content-between text-muted small mb-1"><span><strong>Cevap:</strong> Arac Sahibi</span><span>' + ansDate + '</span></div>';
+                        html += '    <div class="small">' + q.answer + '</div>';
+                        html += '  </div>';
+                    } else if (currentUserId === ownerId && currentUserId != null) {
+                        // Sadece arac sahibi cevaplayabilir
+                        html += '  <div class="mt-2">';
+                        html += '    <textarea class="form-control form-control-sm mb-1" id="txtAnswer_' + q.id + '" placeholder="Cevabinizi yazin..."></textarea>';
+                        html += '    <button class="btn btn-secondary btn-sm btn-answer-q" data-id="' + q.id + '">Cevapla</button>';
+                        html += '    <div class="alert alert-info d-none mt-2" id="answerFeedback_' + q.id + '"></div>';
+                        html += '  </div>';
+                    } else {
+                        html += '  <div class="text-muted small fst-italic">Henuz cevaplanmadi.</div>';
+                    }
+                    html += '</div>';
+                });
+                $("#questionsList").html(html);
+            }
+        });
+    }
 </script>
 }

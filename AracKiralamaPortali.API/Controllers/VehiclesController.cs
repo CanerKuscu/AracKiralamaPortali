@@ -1,17 +1,19 @@
-using System.Security.Claims;
 using AracKiralamaPortali.API.DTOs;
 using AracKiralamaPortali.API.Models;
 using AracKiralamaPortali.API.Repositories;
+using AracKiralamaPortali.API.Data;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 
 namespace AracKiralamaPortali.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class VehiclesController(IVehicleRepository vehicleRepository, IBrandRepository brandRepository, IMapper mapper) : ControllerBase
+    public class VehiclesController(IVehicleRepository vehicleRepository, IBrandRepository brandRepository, IMapper mapper, AppDbContext context) : ControllerBase
     {
         private IQueryable<Vehicle> GetPublicVehicleQuery()
         {
@@ -274,6 +276,212 @@ namespace AracKiralamaPortali.API.Controllers
                 };
             });
             return Ok(result);
+        }
+
+        // --- Reviews ---
+        [HttpGet("{id}/reviews")]
+        public async Task<IActionResult> GetReviews(int id)
+        {
+            var reviews = await context.Reviews
+                .Include(r => r.AppUser)
+                .Include(r => r.Vehicle)
+                    .ThenInclude(v => v.Brand)
+                .Where(r => r.VehicleId == id)
+                .OrderByDescending(r => r.CreatedAt)
+                .ToListAsync();
+
+            var dtos = reviews.Select(r => new ReviewDto
+            {
+                Id = r.Id,
+                Rating = r.Rating,
+                Comment = r.Comment,
+                CreatedAt = r.CreatedAt,
+                AppUserId = r.AppUserId,
+                UserFullName = r.AppUser?.FullName ?? "Anonim",
+                VehicleId = r.VehicleId,
+                ReservationId = r.ReservationId,
+                VehiclePlate = r.Vehicle?.Plate ?? string.Empty,
+                BrandName = r.Vehicle?.Brand?.Name ?? string.Empty
+            });
+
+            return Ok(dtos);
+        }
+
+        [Authorize]
+        [HttpGet("{id}/can-review")]
+        public async Task<IActionResult> CanReview(int id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var hasRented = await context.Reservations
+                .AnyAsync(r => r.VehicleId == id && r.AppUserId == userId && (r.Status == "Completed" || r.Status == "Confirmed"));
+
+            return Ok(new { canReview = hasRented });
+        }
+
+        [Authorize]
+        [HttpPost("{id}/reviews")]
+        public async Task<IActionResult> AddReview(int id, [FromBody] ReviewCreateDto dto)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            
+            // Kullanýcýnýn bu aracý daha önce kiralayýp tamamladýðýný (veya kullanýmda olduðunu) kontrol edelim
+            var hasRented = await context.Reservations
+                .AnyAsync(r => r.VehicleId == id && r.AppUserId == userId && (r.Status == "Completed" || r.Status == "Confirmed"));
+                
+            if (!hasRented)
+            {
+                return BadRequest(new { message = "Sadece kiraladýðýnýz araçlara yorum yapabilirsiniz." });
+            }
+
+            // Gerekli ise son kiralama id'sini bul
+            var lastReservation = await context.Reservations
+                .Where(r => r.VehicleId == id && r.AppUserId == userId && (r.Status == "Completed" || r.Status == "Confirmed"))
+                .OrderByDescending(r => r.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            var review = new Review
+            {
+                VehicleId = id,
+                AppUserId = userId!,
+                Rating = dto.Rating,
+                Comment = dto.Comment,
+                ReservationId = dto.ReservationId == 0 ? (lastReservation?.Id ?? 0) : dto.ReservationId,
+                CreatedAt = DateTime.Now
+            };
+
+            context.Reviews.Add(review);
+            await context.SaveChangesAsync();
+
+            return Ok(new { message = "Yorumunuz baþarýyla eklendi." });
+        }
+
+        // --- Questions ---
+        [HttpGet("{id}/questions")]
+        public async Task<IActionResult> GetQuestions(int id)
+        {
+            var questions = await context.VehicleQuestions
+                .Include(q => q.User)
+                .Where(q => q.VehicleId == id)
+                .OrderByDescending(q => q.CreatedAt)
+                .ToListAsync();
+
+            var dtos = questions.Select(q => new VehicleQuestionDto
+            {
+                Id = q.Id,
+                VehicleId = q.VehicleId,
+                UserId = q.UserId,
+                UserName = q.User?.FullName ?? "Anonim",
+                Question = q.Question,
+                Answer = q.Answer,
+                CreatedAt = q.CreatedAt,
+                AnsweredAt = q.AnsweredAt,
+                IsAnswered = q.IsAnswered
+            });
+
+            return Ok(dtos);
+        }
+
+        [Authorize]
+        [HttpPost("{id}/questions")]
+        public async Task<IActionResult> AddQuestion(int id, [FromBody] VehicleQuestionCreateDto dto)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var vehicle = await context.Vehicles.FindAsync(id);
+            if (vehicle == null) return NotFound(new { message = "Araç bulunamadý." });
+
+            if (vehicle.OwnerId == userId)
+            {
+                return BadRequest(new { message = "Araç sahibi kendi aracýna soru soramaz." });
+            }
+            
+            var question = new VehicleQuestion
+            {
+                VehicleId = id,
+                UserId = userId!,
+                Question = dto.Question,
+                CreatedAt = DateTime.Now,
+                IsAnswered = false
+            };
+
+            context.VehicleQuestions.Add(question);
+            await context.SaveChangesAsync();
+
+            return Ok(new { message = "Sorunuz araç sahibine iletildi." });
+        }
+
+        [Authorize]
+        [HttpPost("{id}/questions/{questionId}/answer")]
+        public async Task<IActionResult> AnswerQuestion(int id, int questionId, [FromBody] VehicleQuestionAnswerDto dto)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userRole = User.FindFirstValue(ClaimTypes.Role);
+            
+            var vehicle = await context.Vehicles.FindAsync(id);
+            if (vehicle == null) return NotFound("Araç bulunamadý.");
+
+            if (vehicle.OwnerId != userId)
+                return Forbid();
+
+            var question = await context.VehicleQuestions.FindAsync(questionId);
+            if (question == null || question.VehicleId != id) return NotFound("Soru bulunamadý.");
+
+            question.Answer = dto.Answer;
+            question.IsAnswered = true;
+            question.AnsweredAt = DateTime.Now;
+
+            await context.SaveChangesAsync();
+            return Ok(new { message = "Soru baþarýyla cevaplandý." });
+        }
+
+        [Authorize]
+        [HttpGet("owner-notifications")]
+        public async Task<IActionResult> GetOwnerNotifications()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userId)) return Unauthorized();
+
+            var questionNotifications = await context.VehicleQuestions
+                .Include(q => q.Vehicle)
+                    .ThenInclude(v => v.Brand)
+                .Include(q => q.User)
+                .Where(q => q.Vehicle.OwnerId == userId && !q.IsAnswered)
+                .Select(q => new OwnerNotificationDto
+                {
+                    Type = "Question",
+                    VehicleId = q.VehicleId,
+                    VehiclePlate = q.Vehicle.Plate,
+                    BrandName = q.Vehicle.Brand != null ? q.Vehicle.Brand.Name : string.Empty,
+                    UserFullName = q.User != null ? q.User.FullName : "Anonim",
+                    Message = q.Question,
+                    IsAnswered = q.IsAnswered,
+                    CreatedAt = q.CreatedAt
+                })
+                .ToListAsync();
+
+            var reviewNotifications = await context.Reviews
+                .Include(r => r.Vehicle)
+                    .ThenInclude(v => v.Brand)
+                .Include(r => r.AppUser)
+                .Where(r => r.Vehicle.OwnerId == userId)
+                .Select(r => new OwnerNotificationDto
+                {
+                    Type = "Review",
+                    VehicleId = r.VehicleId,
+                    VehiclePlate = r.Vehicle.Plate,
+                    BrandName = r.Vehicle.Brand != null ? r.Vehicle.Brand.Name : string.Empty,
+                    UserFullName = r.AppUser != null ? r.AppUser.FullName : "Anonim",
+                    Message = r.Comment,
+                    Rating = r.Rating,
+                    CreatedAt = r.CreatedAt
+                })
+                .ToListAsync();
+
+            var notifications = questionNotifications
+                .Concat(reviewNotifications)
+                .OrderByDescending(n => n.CreatedAt)
+                .ToList();
+
+            return Ok(notifications);
         }
     }
 }
